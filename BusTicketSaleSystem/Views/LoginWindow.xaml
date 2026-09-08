@@ -1,0 +1,104 @@
+<Window x:Class="BusTicketSaleSystem.Views.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="OmniBus Express - Login"
+        Height="560" Width="460"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanMinimize"
+        Background="{StaticResource BackgroundBrush}"
+        FontFamily="{StaticResource AppFont}">
+
+    <Grid>
+        <!-- Background subtle decorative gradient -->
+        <Border Background="{StaticResource BackgroundBrush}">
+            <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Width="380">
+                
+                <!-- Login Card -->
+                <Border Style="{StaticResource CardStyle}" Padding="32,36">
+                    <StackPanel>
+
+                        <!-- App Logo & Title -->
+                        <StackPanel HorizontalAlignment="Center" Margin="0,0,0,24">
+                            <Border Width="56" Height="56" CornerRadius="16" Background="{StaticResource PrimaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,12">
+                                <TextBlock Text="🚌" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="OmniBus Express"
+                                       FontSize="22"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="Bus Ticket Management System"
+                                       FontSize="13"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Error message banner -->
+                        <TextBlock x:Name="TxtError"
+                                   Foreground="{StaticResource DangerBrush}"
+                                   FontSize="12"
+                                   FontWeight="Medium"
+                                   TextWrapping="Wrap"
+                                   Visibility="Collapsed"
+                                   Margin="0,0,0,12"/>
+
+                        <!-- Username Field -->
+                        <TextBlock Text="Username or Email"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,0,0,6"/>
+                        <TextBox x:Name="TxtUsername"
+                                 Style="{StaticResource ModernTextBoxStyle}"
+                                 Text="alex.morgan@busxpress.com"
+                                 Margin="0,0,0,16"/>
+
+                        <!-- Password Field -->
+                        <TextBlock Text="Password"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,0,0,6"/>
+                        <PasswordBox x:Name="TxtPassword"
+                                     Style="{StaticResource ModernPasswordBoxStyle}"
+                                     Password="password123"
+                                     Margin="0,0,0,20"/>
+
+                        <!-- Remember me & Prototype Note -->
+                        <Grid Margin="0,0,0,20">
+                            <CheckBox Content="Remember me"
+                                      IsChecked="True"
+                                      Foreground="{StaticResource TextSecondaryBrush}"
+                                      FontSize="13"
+                                      VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- Login Button -->
+                        <Button x:Name="BtnLogin"
+                                Content="Sign In to Dashboard"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Height="44"
+                                Click="LoginButton_Click"/>
+
+                        <!-- Prototype Notice -->
+                        <Border Background="{StaticResource PrimaryLightBrush}"
+                                BorderBrush="#BFDBFE"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12,10"
+                                Margin="0,22,0,0">
+                            <TextBlock Text="💡 Phase 1 Prototype: Click Sign In to enter the dashboard with mock data."
+                                       FontSize="12"
+                                       Foreground="{StaticResource PrimaryBrush}"
+                                       TextWrapping="Wrap"
+                                       LineHeight="16"/>
+                        </Border>
+
+                    </StackPanel>
+                </Border>
+
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

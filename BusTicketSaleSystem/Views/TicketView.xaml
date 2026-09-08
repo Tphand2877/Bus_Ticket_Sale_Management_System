@@ -1,0 +1,72 @@
+<UserControl x:Class="BusTicketSaleSystem.Views.TicketView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:BusTicketSaleSystem.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:TicketViewModel}"
+             FontFamily="{StaticResource AppFont}">
+
+    <!-- // TODO: teammate will replace this with real logic -->
+    <StackPanel>
+        <!-- Page Header -->
+        <StackPanel Margin="0,0,0,24">
+            <TextBlock Text="E-Ticket Details 🎫"
+                       FontSize="26"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}"/>
+            <TextBlock Text="Printable boarding pass, QR code, and trip terms."
+                       FontSize="14"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- Teammate Placeholder Card -->
+        <Border Style="{StaticResource CardStyle}" Padding="40">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border Width="64" Height="64" CornerRadius="16" Background="{StaticResource PrimaryLightBrush}" HorizontalAlignment="Center" Margin="0,0,0,16">
+                    <TextBlock Text="🎫" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                
+                <TextBlock Text="Detailed E-Ticket &amp; Boarding Pass — Coming Soon"
+                           FontSize="22"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           HorizontalAlignment="Center"/>
+                
+                <TextBlock Text="This section is assigned to teammate: Visual ticket boarding pass with QR barcode, passenger ID verification, and download as PDF."
+                           FontSize="14"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,8,0,24"
+                           TextAlignment="Center"
+                           MaxWidth="500"/>
+
+                <Border Background="#FEF3C7"
+                        BorderBrush="#FDE68A"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16,10"
+                        Margin="0,0,0,24">
+                    <TextBlock Text="// TODO: teammate will replace this with real logic"
+                               FontFamily="Consolas"
+                               FontSize="13"
+                               Foreground="#B45309"
+                               HorizontalAlignment="Center"/>
+                </Border>
+
+                <!-- Navigation buttons -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button Content="← Back to Overview"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Command="{Binding BackToOverviewCommand}"
+                            Margin="0,0,12,0"/>
+                    <Button Content="Go to My Tickets"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Command="{Binding BackToMyTicketsCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,370 @@
+<UserControl x:Class="BusTicketSaleSystem.Views.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:BusTicketSaleSystem.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:HomeViewModel}"
+             FontFamily="{StaticResource AppFont}">
+
+    <StackPanel>
+        <!-- Greeting Header -->
+        <StackPanel Margin="0,0,0,24">
+            <TextBlock Text="Welcome back, Alex! 👋"
+                       FontSize="26"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}"/>
+            <TextBlock Text="Search scheduled routes, manage your bookings, and view upcoming trips."
+                       FontSize="14"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- ====================================================
+             1. PROMINENT TRIP SEARCH BOX
+             ==================================================== -->
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,24" Padding="24">
+            <StackPanel>
+                <!-- Search Box Title -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                    <Border Width="32" Height="32" CornerRadius="8" Background="{StaticResource PrimaryLightBrush}" Margin="0,0,10,0">
+                        <TextBlock Text="🔍" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Search Bus Trips" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Choose your departure, arrival point, and date" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Input Controls Grid -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <!-- Origin -->
+                        <ColumnDefinition Width="2*"/>
+                        <!-- Swap Button -->
+                        <ColumnDefinition Width="Auto"/>
+                        <!-- Destination -->
+                        <ColumnDefinition Width="2*"/>
+                        <!-- Departure Date -->
+                        <ColumnDefinition Width="1.5*"/>
+                        <!-- Passengers -->
+                        <ColumnDefinition Width="1.5*"/>
+                        <!-- Search Button -->
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Origin -->
+                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                        <TextBlock Text="From (Origin)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                        <TextBox Style="{StaticResource ModernTextBoxStyle}"
+                                 Text="{Binding Origin, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="42"/>
+                    </StackPanel>
+
+                    <!-- Swap Button -->
+                    <Button Grid.Column="1"
+                            Command="{Binding SwapLocationsCommand}"
+                            ToolTip="Swap locations"
+                            Width="36" Height="36"
+                            VerticalAlignment="Bottom"
+                            Margin="0,0,8,3"
+                            Background="{StaticResource PrimaryLightBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="18">
+                                    <TextBlock Text="⇄" FontSize="18" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Destination -->
+                    <StackPanel Grid.Column="2" Margin="0,0,12,0">
+                        <TextBlock Text="To (Destination)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                        <TextBox Style="{StaticResource ModernTextBoxStyle}"
+                                 Text="{Binding Destination, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="42"/>
+                    </StackPanel>
+
+                    <!-- Departure Date -->
+                    <StackPanel Grid.Column="3" Margin="0,0,12,0">
+                        <TextBlock Text="Departure Date" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                        <DatePicker SelectedDate="{Binding DepartureDate}"
+                                    Height="42"
+                                    VerticalContentAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Passengers -->
+                    <StackPanel Grid.Column="4" Margin="0,0,16,0">
+                        <TextBlock Text="Passengers" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                        <ComboBox ItemsSource="{Binding PassengerOptions}"
+                                  SelectedItem="{Binding SelectedPassengers}"
+                                  Height="42"
+                                  VerticalContentAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Search Button -->
+                    <StackPanel Grid.Column="5" VerticalAlignment="Bottom">
+                        <Button Content="Search Buses 🚍"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Command="{Binding SearchCommand}"
+                                Height="42"
+                                Padding="20,0"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- ====================================================
+             2. PERSONAL STAT CARDS
+             ==================================================== -->
+        <Grid Margin="0,0,0,24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Card 1: Total Tickets -->
+            <Border Grid.Column="0" Style="{StaticResource StatCardStyle}" Margin="0,0,12,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Total Tickets" FontSize="13" Foreground="{StaticResource TextMutedBrush}" FontWeight="Medium"/>
+                        <TextBlock Text="{Binding TotalTickets}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,4,0,0"/>
+                        <TextBlock Text="Lifetime bookings" FontSize="11" Foreground="{StaticResource SuccessBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Border Grid.Column="1" Width="44" Height="44" CornerRadius="12" Background="#EFF6FF" VerticalAlignment="Center">
+                        <TextBlock Text="🎫" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Card 2: Upcoming Trips -->
+            <Border Grid.Column="1" Style="{StaticResource StatCardStyle}" Margin="6,0,6,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Upcoming Trips" FontSize="13" Foreground="{StaticResource TextMutedBrush}" FontWeight="Medium"/>
+                        <TextBlock Text="{Binding UpcomingTripsCount}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Margin="0,4,0,0"/>
+                        <TextBlock Text="Ready for boarding" FontSize="11" Foreground="{StaticResource PrimaryBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Border Grid.Column="1" Width="44" Height="44" CornerRadius="12" Background="#EFF6FF" VerticalAlignment="Center">
+                        <TextBlock Text="🚍" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Card 3: Total Spent -->
+            <Border Grid.Column="2" Style="{StaticResource StatCardStyle}" Margin="6,0,6,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Total Spent" FontSize="13" Foreground="{StaticResource TextMutedBrush}" FontWeight="Medium"/>
+                        <TextBlock Text="{Binding TotalSpent}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,4,0,0"/>
+                        <TextBlock Text="Saved $42 with deals" FontSize="11" Foreground="{StaticResource SuccessBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Border Grid.Column="1" Width="44" Height="44" CornerRadius="12" Background="#ECFDF5" VerticalAlignment="Center">
+                        <TextBlock Text="💳" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Card 4: Loyalty Points -->
+            <Border Grid.Column="3" Style="{StaticResource StatCardStyle}" Margin="12,0,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Reward Points" FontSize="13" Foreground="{StaticResource TextMutedBrush}" FontWeight="Medium"/>
+                        <TextBlock Text="{Binding LoyaltyPoints}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" Margin="0,4,0,0"/>
+                        <TextBlock Text="Gold tier benefits" FontSize="11" Foreground="{StaticResource WarningBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Border Grid.Column="1" Width="44" Height="44" CornerRadius="12" Background="#FEF3C7" VerticalAlignment="Center">
+                        <TextBlock Text="⭐" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ====================================================
+             3. UPCOMING TRIP CARD
+             ==================================================== -->
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,24" Padding="24">
+            <StackPanel>
+                <!-- Card Header -->
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Upcoming Trip" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <!-- Confirmed Pill Badge -->
+                        <Border Background="#ECFDF5"
+                                BorderBrush="#A7F3D0"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Padding="10,3"
+                                Margin="12,0,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="●" Foreground="{StaticResource SuccessBrush}" FontSize="9" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Text="{Binding UpcomingStatus}" Foreground="#065F46" FontWeight="SemiBold" FontSize="12"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Ticket Code: " Foreground="{StaticResource TextMutedBrush}" FontSize="13"/>
+                        <TextBlock Text="{Binding UpcomingTicketCode}" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13"/>
+                    </StackPanel>
+                </Grid>
+
+                <Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,18"/>
+
+                <!-- Route & Time Schedule -->
+                <Grid Margin="0,0,0,18">
+                    <Grid.ColumnDefinitions>
+                        <!-- Departure -->
+                        <ColumnDefinition Width="*"/>
+                        <!-- Middle Duration Indicator -->
+                        <ColumnDefinition Width="180"/>
+                        <!-- Arrival -->
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Departure Side -->
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="DEPARTURE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding UpcomingDepartureTime}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2,0,0"/>
+                        <TextBlock Text="{Binding UpcomingDate}" FontSize="13" FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                        <TextBlock Text="{Binding UpcomingDepartureStation}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+
+                    <!-- Middle Duration Line -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding UpcomingDuration}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center"/>
+                        <Grid Width="140" Margin="0,6,0,6">
+                            <Rectangle Height="2" Fill="{StaticResource BorderBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="🚌" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                        <TextBlock Text="Non-stop Express" FontSize="11" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Arrival Side -->
+                    <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+                        <TextBlock Text="ARRIVAL" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Right"/>
+                        <TextBlock Text="{Binding UpcomingArrivalTime}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2,0,0" HorizontalAlignment="Right"/>
+                        <TextBlock Text="Saturday, Oct 17, 2026" FontSize="13" FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" HorizontalAlignment="Right"/>
+                        <TextBlock Text="{Binding UpcomingArrivalStation}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0" HorizontalAlignment="Right"/>
+                    </StackPanel>
+                </Grid>
+
+                <Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,16"/>
+
+                <!-- Meta Info & Action Button -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Bus Type -->
+                    <StackPanel Grid.Column="0" Margin="0,0,24,0">
+                        <TextBlock Text="Bus Type" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding UpcomingBusType}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+
+                    <!-- Seat Assigned -->
+                    <StackPanel Grid.Column="1" Margin="0,0,24,0">
+                        <TextBlock Text="Seat Number" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding UpcomingSeat}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+
+                    <!-- Price Paid -->
+                    <StackPanel Grid.Column="2" Margin="0,0,24,0">
+                        <TextBlock Text="Total Paid" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding UpcomingPrice}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+
+                    <!-- View Ticket Action Button -->
+                    <Button Grid.Column="4"
+                            Content="View E-Ticket 🎫"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Command="{Binding ViewTicketCommand}"
+                            Height="38"
+                            Padding="18,0"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- ====================================================
+             4. POPULAR ROUTES SECTION
+             ==================================================== -->
+        <TextBlock Text="Popular Destinations &amp; Routes"
+                   FontSize="18"
+                   FontWeight="Bold"
+                   Foreground="{StaticResource TextPrimaryBrush}"
+                   Margin="0,0,0,14"/>
+
+        <ItemsControl ItemsSource="{Binding PopularRoutes}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Columns="4"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Style="{StaticResource CardStyle}" Margin="4" Padding="14">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="{Binding From}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text=" → " FontSize="14" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
+                                <TextBlock Text="{Binding To}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding Tag}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,6"/>
+                            
+                            <Grid Margin="0,6,0,0">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Duration}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="{Binding Price}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}"/>
+                                </StackPanel>
+                                <Button Content="Book"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        HorizontalAlignment="Right"
+                                        Padding="10,4"
+                                        FontSize="12"
+                                        Command="{Binding DataContext.QuickBookCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+    </StackPanel>
+</UserControl>

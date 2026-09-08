@@ -1,0 +1,57 @@
+<Application x:Class="BusTicketSaleSystem.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:BusTicketSaleSystem.ViewModels"
+             xmlns:views="clr-namespace:BusTicketSaleSystem.Views"
+             StartupUri="Views/LoginWindow.xaml"
+             ShutdownMode="OnLastWindowClose">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Shared Design System / Theme -->
+                <ResourceDictionary Source="Theme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- ====================================================
+                 VIEWMODEL-TO-VIEW DATATEMPLATES (WPF NAVIGATION)
+                 ==================================================== -->
+            <!-- Dashboard / Overview -->
+            <DataTemplate DataType="{x:Type vm:HomeViewModel}">
+                <views:HomeView />
+            </DataTemplate>
+
+            <!-- My Tickets -->
+            <DataTemplate DataType="{x:Type vm:MyTicketsViewModel}">
+                <views:MyTicketsView />
+            </DataTemplate>
+
+            <!-- Travel History -->
+            <DataTemplate DataType="{x:Type vm:HistoryViewModel}">
+                <views:HistoryView />
+            </DataTemplate>
+
+            <!-- Account Profile -->
+            <DataTemplate DataType="{x:Type vm:ProfileViewModel}">
+                <views:ProfileView />
+            </DataTemplate>
+
+            <!-- Teammate Placeholders (Phase 1) -->
+            <DataTemplate DataType="{x:Type vm:BookingViewModel}">
+                <views:BookingView />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:SeatSelectionViewModel}">
+                <views:SeatSelectionView />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:BookingConfirmationViewModel}">
+                <views:BookingConfirmationView />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:TicketViewModel}">
+                <views:TicketView />
+            </DataTemplate>
+
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
