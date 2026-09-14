@@ -8,65 +8,267 @@
              d:DataContext="{d:DesignInstance Type=vm:TicketViewModel}"
              FontFamily="{StaticResource AppFont}">
 
-    <!-- // TODO: teammate will replace this with real logic -->
-    <StackPanel>
-        <!-- Page Header -->
-        <StackPanel Margin="0,0,0,24">
-            <TextBlock Text="E-Ticket Details 🎫"
-                       FontSize="26"
-                       FontWeight="Bold"
-                       Foreground="{StaticResource TextPrimaryBrush}"/>
-            <TextBlock Text="Printable boarding pass, QR code, and trip terms."
-                       FontSize="14"
-                       Foreground="{StaticResource TextSecondaryBrush}"
-                       Margin="0,4,0,0"/>
-        </StackPanel>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="0,0,0,40" MaxWidth="780" HorizontalAlignment="Center">
 
-        <!-- Teammate Placeholder Card -->
-        <Border Style="{StaticResource CardStyle}" Padding="40">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Border Width="64" Height="64" CornerRadius="16" Background="{StaticResource PrimaryLightBrush}" HorizontalAlignment="Center" Margin="0,0,0,16">
-                    <TextBlock Text="🎫" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-                
-                <TextBlock Text="Detailed E-Ticket &amp; Boarding Pass — Coming Soon"
-                           FontSize="22"
-                           FontWeight="Bold"
-                           Foreground="{StaticResource TextPrimaryBrush}"
-                           HorizontalAlignment="Center"/>
-                
-                <TextBlock Text="This section is assigned to teammate: Visual ticket boarding pass with QR barcode, passenger ID verification, and download as PDF."
-                           FontSize="14"
-                           Foreground="{StaticResource TextMutedBrush}"
-                           HorizontalAlignment="Center"
-                           Margin="0,8,0,24"
-                           TextAlignment="Center"
-                           MaxWidth="500"/>
+            <!-- Success Banner -->
+            <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="12" Padding="20,16" Margin="0,0,0,24">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="44" Height="44" CornerRadius="22" Background="#10B981" VerticalAlignment="Center" Margin="0,0,16,0">
+                        <Path Data="{StaticResource IconCheck}" Fill="White" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Booking Confirmed Successfully!" FontSize="17" FontWeight="Bold" Foreground="#065F46"/>
+                        <TextBlock Text="Your official e-ticket and boarding pass have been issued. Present this boarding pass at the bus platform."
+                                   FontSize="13" Foreground="#047857" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
 
-                <Border Background="#FEF3C7"
-                        BorderBrush="#FDE68A"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="16,10"
-                        Margin="0,0,0,24">
-                    <TextBlock Text="// TODO: teammate will replace this with real logic"
-                               FontFamily="Consolas"
-                               FontSize="13"
-                               Foreground="#B45309"
-                               HorizontalAlignment="Center"/>
-                </Border>
+            <!-- BOARDING PASS CARD -->
+            <Border Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="18" Effect="{StaticResource ElevatedShadow}">
+                <StackPanel>
+                    <!-- Ticket Header / Navy Ribbon -->
+                    <Border Background="#1E3A8A" CornerRadius="18,18,0,0" Padding="28,22">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-                <!-- Navigation buttons -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button Content="← Back to Overview"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            Command="{Binding BackToOverviewCommand}"
-                            Margin="0,0,12,0"/>
-                    <Button Content="Go to My Tickets"
-                            Style="{StaticResource PrimaryButtonStyle}"
-                            Command="{Binding BackToMyTicketsCommand}"/>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="32" Height="32" CornerRadius="8" Background="#2563EB" Margin="0,0,10,0">
+                                        <Path Data="{StaticResource IconBus}" Fill="White" Width="18" Height="18" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="OmniBus Express" Foreground="White" FontSize="16" FontWeight="Bold"/>
+                                        <TextBlock Text="OFFICIAL BOARDING PASS" Foreground="#93C5FD" FontSize="10" FontWeight="Bold" Margin="0,1,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Ticket Code Pill -->
+                            <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <TextBlock Text="TICKET CODE" Foreground="#93C5FD" FontSize="10" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                <Border Background="#172554" CornerRadius="8" Padding="12,5" Margin="0,4,0,0" BorderBrush="#3B82F6" BorderThickness="1">
+                                    <TextBlock Text="{Binding Ticket.TicketCode}" Foreground="White" FontSize="15" FontWeight="Bold" FontFamily="Consolas, Segoe UI"/>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Route Origin -> Destination Display -->
+                    <Border Padding="32,28,32,20" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Origin -->
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="DEPARTURE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding Ticket.Origin, TargetNullValue=Xuất phát}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,4,0,2"/>
+                                <TextBlock Text="{Binding Ticket.DepartureTime, StringFormat={}{0:HH:mm - dddd, dd/MM/yyyy}}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}"/>
+                            </StackPanel>
+
+                            <!-- Route Transit Indicator -->
+                            <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,0">
+                                <Path Data="{StaticResource IconRoute}" Fill="{StaticResource PrimaryBrush}" Width="24" Height="24" Stretch="Uniform" HorizontalAlignment="Center"/>
+                                <TextBlock Text="{Binding Ticket.Route}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,0" HorizontalAlignment="Center"/>
+                            </StackPanel>
+
+                            <!-- Destination -->
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+                                <TextBlock Text="DESTINATION" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Right"/>
+                                <TextBlock Text="{Binding Ticket.Destination, TargetNullValue=Điểm đến}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,4,0,2" HorizontalAlignment="Right"/>
+                                <TextBlock Text="{Binding Ticket.ArrivalTime, StringFormat={}{0:HH:mm - dddd, dd/MM/yyyy}}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource SuccessBrush}" HorizontalAlignment="Right"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Perforated Tear-Off Divider -->
+                    <Grid Margin="0,-1,0,0">
+                        <!-- Left cutout notch -->
+                        <Border Width="20" Height="20" CornerRadius="0,10,10,0" Background="{StaticResource BackgroundBrush}" HorizontalAlignment="Left" Margin="-1,0,0,0"/>
+                        <!-- Dashed line -->
+                        <Line X1="0" Y1="10" X2="740" Y2="10" Stroke="#CBD5E1" StrokeDashArray="4 4" StrokeThickness="1.5" HorizontalAlignment="Center" Width="720"/>
+                        <!-- Right cutout notch -->
+                        <Border Width="20" Height="20" CornerRadius="10,0,0,10" Background="{StaticResource BackgroundBrush}" HorizontalAlignment="Right" Margin="0,0,-1,0"/>
+                    </Grid>
+
+                    <!-- Ticket Details Grid -->
+                    <Border Padding="32,24,32,28">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Row 1: Vehicle, Seat & Fare -->
+                            <UniformGrid Grid.Row="0" Columns="4" Margin="0,0,0,24">
+                                <!-- Bus Type -->
+                                <StackPanel>
+                                    <TextBlock Text="BUS COACH" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding Ticket.BusType}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,4,0,0"/>
+                                </StackPanel>
+
+                                <!-- Seat -->
+                                <StackPanel>
+                                    <TextBlock Text="ASSIGNED SEAT" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                                    <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" CornerRadius="6" Padding="10,3" HorizontalAlignment="Left" Margin="0,4,0,0">
+                                        <TextBlock Text="{Binding Ticket.SeatNumber}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Status -->
+                                <StackPanel>
+                                    <TextBlock Text="STATUS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                                    <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="12" Padding="10,3" HorizontalAlignment="Left" Margin="0,4,0,0">
+                                        <TextBlock Text="{Binding Ticket.Status, TargetNullValue=Active}" FontSize="12" FontWeight="Bold" Foreground="#065F46"/>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Total Paid -->
+                                <StackPanel HorizontalAlignment="Right">
+                                    <TextBlock Text="TOTAL FARE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding Ticket.Price, StringFormat={}{0:N0} VND}" FontSize="17" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" Margin="0,4,0,0" HorizontalAlignment="Right"/>
+                                </StackPanel>
+                            </UniformGrid>
+
+                            <!-- Row 2: Booking Timestamp & Terms -->
+                            <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="18,14" Margin="0,0,0,24">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Issued via OmniBus Digital Terminal" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <TextBlock Text="{Binding Ticket.BookingTime, StringFormat=Issued on {0:dd/MM/yyyy HH:mm:ss}}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Data="{StaticResource IconShield}" Fill="{StaticResource SuccessBrush}" Width="16" Height="16" Stretch="Uniform" Margin="0,0,6,0"/>
+                                        <TextBlock Text="Verified &amp; Insured" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource SuccessBrush}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Row 3: Barcode & Digital Validation Simulation -->
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Simulated Barcode -->
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <Border Height="46" Background="Transparent" HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <!-- Barcode stripes -->
+                                            <Rectangle Width="3" Height="46" Fill="#0F172A" Margin="0,0,2,0"/>
+                                            <Rectangle Width="2" Height="46" Fill="#0F172A" Margin="0,0,4,0"/>
+                                            <Rectangle Width="5" Height="46" Fill="#0F172A" Margin="0,0,2,0"/>
+                                            <Rectangle Width="1" Height="46" Fill="#0F172A" Margin="0,0,3,0"/>
+                                            <Rectangle Width="4" Height="46" Fill="#0F172A" Margin="0,0,2,0"/>
+                                            <Rectangle Width="2" Height="46" Fill="#0F172A" Margin="0,0,5,0"/>
+                                            <Rectangle Width="6" Height="46" Fill="#0F172A" Margin="0,0,2,0"/>
+                                            <Rectangle Width="3" Height="46" Fill="#0F172A" Margin="0,0,3,0"/>
+                                            <Rectangle Width="1" Height="46" Fill="#0F172A" Margin="0,0,4,0"/>
+                                            <Rectangle Width="4" Height="46" Fill="#0F172A" Margin="0,0,2,0"/>
+                                            <Rectangle Width="2" Height="46" Fill="#0F172A" Margin="0,0,3,0"/>
+                                            <Rectangle Width="5" Height="46" Fill="#0F172A" Margin="0,0,2,0"/>
+                                            <Rectangle Width="3" Height="46" Fill="#0F172A" Margin="0,0,4,0"/>
+                                            <Rectangle Width="1" Height="46" Fill="#0F172A" Margin="0,0,2,0"/>
+                                            <Rectangle Width="4" Height="46" Fill="#0F172A" Margin="0,0,3,0"/>
+                                            <Rectangle Width="2" Height="46" Fill="#0F172A" Margin="0,0,2,0"/>
+                                            <Rectangle Width="6" Height="46" Fill="#0F172A" Margin="0,0,3,0"/>
+                                            <Rectangle Width="3" Height="46" Fill="#0F172A" Margin="0,0,2,0"/>
+                                            <Rectangle Width="2" Height="46" Fill="#0F172A" Margin="0,0,4,0"/>
+                                            <Rectangle Width="5" Height="46" Fill="#0F172A" Margin="0,0,2,0"/>
+                                            <Rectangle Width="1" Height="46" Fill="#0F172A" Margin="0,0,3,0"/>
+                                            <Rectangle Width="4" Height="46" Fill="#0F172A" Margin="0,0,2,0"/>
+                                            <Rectangle Width="2" Height="46" Fill="#0F172A" Margin="0,0,4,0"/>
+                                            <Rectangle Width="3" Height="46" Fill="#0F172A" Margin="0,0,1,0"/>
+                                            <Rectangle Width="5" Height="46" Fill="#0F172A" Margin="0,0,3,0"/>
+                                            <Rectangle Width="2" Height="46" Fill="#0F172A"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <TextBlock Text="{Binding Ticket.TicketCode, StringFormat=*{0}*}"
+                                               FontFamily="Consolas, Segoe UI"
+                                               FontSize="11"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               Margin="0,4,0,0"/>
+                                </StackPanel>
+
+                                <!-- Dynamic QR generated from the actual ticket code -->
+                                <Border Grid.Column="1" Width="80" Height="80" Background="#F1F5F9" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="6" HorizontalAlignment="Right">
+                                    <Image Source="{Binding QrCodeImage}" Stretch="Uniform"/>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Border>
                 </StackPanel>
+            </Border>
+
+            <!-- Ticket actions -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,24,0,0">
+                <Button Content="🖨 In vé"
+                        Command="{Binding PrintTicketCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Height="42"
+                        Padding="18,0"
+                        Margin="0,0,10,0"/>
+                <Button Content="Xuất PNG"
+                        Command="{Binding ExportPngCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Height="42"
+                        Padding="18,0"
+                        Margin="0,0,10,0"/>
+                <Button Content="Xuất PDF"
+                        Command="{Binding ExportPdfCommand}"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Height="42"
+                        Padding="18,0"/>
             </StackPanel>
-        </Border>
-    </StackPanel>
+
+            <!-- Navigation Buttons -->
+            <Grid Margin="0,28,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0"
+                        Command="{Binding BackToOverviewCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Height="46"
+                        Margin="0,0,10,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IconArrowLeft}" Fill="{StaticResource PrimaryBrush}" Width="16" Height="16" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Back to Overview" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="1"
+                        Command="{Binding BackToMyTicketsCommand}"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Height="46"
+                        Margin="10,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IconTicket}" Fill="White" Width="16" Height="16" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="View in My Tickets" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

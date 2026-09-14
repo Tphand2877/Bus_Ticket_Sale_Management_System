@@ -1,104 +1,103 @@
 using BusTicketSaleSystem.Common;
+using BusTicketSaleSystem.Data;
+using BusTicketSaleSystem.Models;
 using BusTicketSaleSystem.Services;
-using System;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 
-namespace BusTicketSaleSystem.ViewModels
+namespace BusTicketSaleSystem.ViewModels;
+
+public sealed class HistoryViewModel : ViewModelBase
 {
-    /// <summary>
-    /// ViewModel for Trip History screen.
-    /// Displays past completed trips and tickets.
-    /// </summary>
-    public class HistoryViewModel : ViewModelBase
+    private readonly INavigationService _navigationService;
+    private string _totalCompletedTripsText = "0 Trips Completed";
+    private string _totalDistanceTraveledText = "0 km Traveled";
+    private bool _isBusy;
+
+    public ObservableCollection<PastTripItemViewModel> HistoryTrips { get; } = new();
+    public string TotalCompletedTripsText { get => _totalCompletedTripsText; private set => SetProperty(ref _totalCompletedTripsText, value); }
+    public string TotalDistanceTraveledText { get => _totalDistanceTraveledText; private set => SetProperty(ref _totalDistanceTraveledText, value); }
+    public bool IsBusy
     {
-        private readonly INavigationService _navigationService;
-
-        public ObservableCollection<PastTripItemViewModel> HistoryTrips { get; } = new();
-
-        public string TotalCompletedTrips { get; } = "12 Trips";
-        public string TotalMilesTraveled { get; } = "3,480 km";
-
-        public ICommand BookAgainCommand { get; }
-
-        public HistoryViewModel(INavigationService navigationService)
+        get => _isBusy;
+        private set
         {
-            _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            if (SetProperty(ref _isBusy, value))
+            {
+                OnPropertyChanged(nameof(HasNoHistory));
+                OnPropertyChanged(nameof(HasHistory));
+            }
+        }
+    }
+    public bool HasHistory => HistoryTrips.Count > 0;
+    public bool HasNoHistory => !IsBusy && HistoryTrips.Count == 0;
 
-            BookAgainCommand = new RelayCommand(() =>
+    public ICommand BookAgainCommand { get; }
+    public ICommand RefreshCommand { get; }
+
+    public HistoryViewModel(INavigationService navigationService)
+    {
+        _navigationService = navigationService;
+
+        BookAgainCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is PastTripItemViewModel item && !string.IsNullOrWhiteSpace(item.Origin) && !string.IsNullOrWhiteSpace(item.Destination))
+            {
+                _navigationService.NavigateTo(new BookingViewModel(_navigationService, item.Origin, item.Destination, DateTime.Today.AddDays(1)));
+            }
+            else
             {
                 _navigationService.NavigateTo<BookingViewModel>();
-            });
+            }
+        });
 
-            LoadMockHistory();
-        }
+        RefreshCommand = new RelayCommand(async () => await LoadAsync());
 
-        private void LoadMockHistory()
-        {
-            HistoryTrips.Add(new PastTripItemViewModel
-            {
-                TicketCode = "TK-2026-7241",
-                Route = "Saigon → Da Lat",
-                Date = "Sep 02, 2026",
-                Time = "11:00 PM",
-                BusOperator = "Thanh Buoi Limousine",
-                Seat = "B-04",
-                Fare = "$18.50",
-                Status = "Completed",
-                Rating = "★★★★★"
-            });
-
-            HistoryTrips.Add(new PastTripItemViewModel
-            {
-                TicketCode = "TK-2026-6819",
-                Route = "Da Lat → Saigon",
-                Date = "Sep 06, 2026",
-                Time = "01:30 PM",
-                BusOperator = "Thanh Buoi Limousine",
-                Seat = "A-12",
-                Fare = "$18.50",
-                Status = "Completed",
-                Rating = "★★★★☆"
-            });
-
-            HistoryTrips.Add(new PastTripItemViewModel
-            {
-                TicketCode = "TK-2026-5502",
-                Route = "Hanoi → Sapa",
-                Date = "Jul 15, 2026",
-                Time = "06:30 AM",
-                BusOperator = "Inter Bus Lines",
-                Seat = "Cabin-02",
-                Fare = "$15.00",
-                Status = "Completed",
-                Rating = "★★★★★"
-            });
-
-            HistoryTrips.Add(new PastTripItemViewModel
-            {
-                TicketCode = "TK-2026-4310",
-                Route = "Saigon → Vung Tau",
-                Date = "May 20, 2026",
-                Time = "09:00 AM",
-                BusOperator = "Hoa Mai Express",
-                Seat = "07",
-                Fare = "$8.00",
-                Status = "Completed",
-                Rating = "★★★★☆"
-            });
-        }
+        _ = LoadAsync();
     }
 
-    public class PastTripItemViewModel : ViewModelBase
+    private async Task LoadAsync()
     {
-        public string TicketCode { get; set; } = string.Empty;
-        public string Route { get; set; } = string.Empty;
-        public string Date { get; set; } = string.Empty;
-        public string Time { get; set; } = string.Empty;
-        public string BusOperator { get; set; } = string.Empty;
-        public string Seat { get; set; } = string.Empty;
-        public string Fare { get; set; } = string.Empty;
-        public string Status { get; set; } = "Completed";
-        public string Rating { get; set; } = "★★★★★";
+        if (CurrentUser.Account is null) return;
+        IsBusy = true;
+        try
+        {
+            HistoryTrips.Clear();
+            var tickets = await DatabaseHelper.GetTicketsAsync(CurrentUser.Account.AccountId, true);
+            foreach (var ticket in tickets)
+            {
+                HistoryTrips.Add(new PastTripItemViewModel(ticket));
+            }
+
+            var (completedCount, totalKm) = await DatabaseHelper.GetHistoryStatsAsync(CurrentUser.Account.AccountId);
+            TotalCompletedTripsText = $"{completedCount} Trips Completed";
+            TotalDistanceTraveledText = $"{totalKm:N0} km Traveled";
+        }
+        catch { }
+        finally
+        {
+            IsBusy = false;
+            OnPropertyChanged(nameof(HasHistory));
+            OnPropertyChanged(nameof(HasNoHistory));
+        }
     }
+}
+
+public sealed class PastTripItemViewModel : ViewModelBase
+{
+    private readonly TicketDetails _ticket;
+    public string TicketCode => _ticket.TicketCode;
+    public string Route => _ticket.Route;
+    public string Origin => _ticket.Origin;
+    public string Destination => _ticket.Destination;
+    public decimal DistanceKm => _ticket.DistanceKm;
+    public string Date => _ticket.DepartureTime.ToString("dd/MM/yyyy");
+    public string Time => _ticket.DepartureTime.ToString("HH:mm");
+    public string BusOperator => string.IsNullOrWhiteSpace(_ticket.BusType) ? "OmniBus Express" : _ticket.BusType;
+    public string Seat => _ticket.SeatNumber;
+    public string Fare => $"{_ticket.Price:N0} VND";
+    public string Status => _ticket.Status;
+    public string Rating => _ticket.Status == "Đã hủy" ? "Đã hủy" : "5.0 ★";
+
+    public PastTripItemViewModel(TicketDetails ticket) => _ticket = ticket;
 }

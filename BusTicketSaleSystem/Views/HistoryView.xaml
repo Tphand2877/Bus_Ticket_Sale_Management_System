@@ -8,6 +8,10 @@
              d:DataContext="{d:DesignInstance Type=vm:HistoryViewModel}"
              FontFamily="{StaticResource AppFont}">
 
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </UserControl.Resources>
+
     <StackPanel>
         <!-- Page Header & Summary -->
         <Grid Margin="0,0,0,24">
@@ -33,7 +37,7 @@
                         CornerRadius="8"
                         Padding="14,8"
                         Margin="0,0,10,0">
-                    <TextBlock Text="12 Trips Completed"
+                    <TextBlock Text="{Binding TotalCompletedTripsText}"
                                FontWeight="SemiBold"
                                FontSize="13"
                                Foreground="{StaticResource PrimaryBrush}"/>
@@ -41,7 +45,7 @@
                 <Border Background="#ECFDF5"
                         CornerRadius="8"
                         Padding="14,8">
-                    <TextBlock Text="3,480 km Traveled"
+                    <TextBlock Text="{Binding TotalDistanceTraveledText}"
                                FontWeight="SemiBold"
                                FontSize="13"
                                Foreground="{StaticResource SuccessBrush}"/>
@@ -115,6 +119,7 @@
                                             Content="Book Again"
                                             Style="{StaticResource SecondaryButtonStyle}"
                                             Command="{Binding DataContext.BookAgainCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
                                             VerticalAlignment="Center"
                                             HorizontalAlignment="Right"
                                             Margin="0,0,20,0"
@@ -125,6 +130,31 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+
+                <!-- Empty State When No History -->
+                <Border Padding="40,32"
+                        Visibility="{Binding HasNoHistory, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel HorizontalAlignment="Center">
+                        <Border Width="56" Height="56" CornerRadius="28" Background="{StaticResource PrimaryLightBrush}" HorizontalAlignment="Center" Margin="0,0,0,14">
+                            <Path Data="{StaticResource IconClock}" Fill="{StaticResource PrimaryBrush}" Width="24" Height="24" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Chưa có lịch sử chuyến đi"
+                                   FontSize="17"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Các chuyến đi đã hoàn tất hoặc đã hủy sẽ hiển thị tại đây."
+                                   FontSize="13"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,4,0,16"/>
+                        <Button Content="Tìm chuyến đi mới"
+                                Command="{Binding BookAgainCommand}"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                HorizontalAlignment="Center"
+                                Padding="20,8"/>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
     </StackPanel>

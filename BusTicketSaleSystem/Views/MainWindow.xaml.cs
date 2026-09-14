@@ -1,50 +1,32 @@
+using BusTicketSaleSystem.Models;
 using BusTicketSaleSystem.Services;
 using BusTicketSaleSystem.ViewModels;
 using System;
 using System.Windows;
 
-namespace BusTicketSaleSystem.Views
+namespace BusTicketSaleSystem.Views;
+
+public partial class MainWindow : Window
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml.
-    /// Thin code-behind shell: delegates all navigation and data handling to MainViewModel.
-    /// </summary>
-    public partial class MainWindow : Window
+    public MainWindow()
     {
-        public MainWindow()
+        InitializeComponent();
+        var navigationService = new NavigationService();
+        navigationService.SetFactory(type => type == typeof(HomeViewModel) ? new HomeViewModel(navigationService)
+            : type == typeof(BookingViewModel) ? new BookingViewModel(navigationService)
+            : type == typeof(MyTicketsViewModel) ? new MyTicketsViewModel(navigationService)
+            : type == typeof(HistoryViewModel) ? new HistoryViewModel(navigationService)
+            : type == typeof(ProfileViewModel) ? new ProfileViewModel(navigationService)
+            : throw new InvalidOperationException($"No factory registered for {type.Name}"));
+        var mainViewModel = new MainViewModel(navigationService);
+        mainViewModel.RequestLogout += (_, _) =>
         {
-            InitializeComponent();
-
-            // Set up shared NavigationService and ViewModels
-            var navigationService = new NavigationService();
-
-            // Factory for resolving ViewModels with dependencies
-            navigationService.SetFactory(type =>
-            {
-                if (type == typeof(HomeViewModel)) return new HomeViewModel(navigationService);
-                if (type == typeof(BookingViewModel)) return new BookingViewModel(navigationService);
-                if (type == typeof(SeatSelectionViewModel)) return new SeatSelectionViewModel(navigationService);
-                if (type == typeof(BookingConfirmationViewModel)) return new BookingConfirmationViewModel(navigationService);
-                if (type == typeof(TicketViewModel)) return new TicketViewModel(navigationService);
-                if (type == typeof(MyTicketsViewModel)) return new MyTicketsViewModel(navigationService);
-                if (type == typeof(HistoryViewModel)) return new HistoryViewModel(navigationService);
-                if (type == typeof(ProfileViewModel)) return new ProfileViewModel(navigationService);
-
-                return (Common.ViewModelBase)Activator.CreateInstance(type)!;
-            });
-
-            var mainViewModel = new MainViewModel(navigationService);
-
-            // Handle user logout request from MainViewModel
-            mainViewModel.RequestLogout += (s, e) =>
-            {
-                var loginWindow = new LoginWindow();
-                Application.Current.MainWindow = loginWindow;
-                loginWindow.Show();
-                this.Close();
-            };
-
-            DataContext = mainViewModel;
-        }
+            CurrentUser.Account = null;
+            var loginWindow = new LoginWindow();
+            Application.Current.MainWindow = loginWindow;
+            loginWindow.Show();
+            Close();
+        };
+        DataContext = mainViewModel;
     }
 }

@@ -1,0 +1,96 @@
+<Window x:Class="BusTicketSaleSystem.Views.PaymentWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Thanh toán vé xe"
+        Height="700"
+        Width="460"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Closed="PaymentWindow_Closed"
+        Background="#F8FAFC">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </Window.Resources>
+    <Grid Margin="24">
+        <StackPanel HorizontalAlignment="Center">
+            <TextBlock Text="{Binding TitleText}"
+                       FontSize="17"
+                       FontWeight="Bold"
+                       Foreground="#166534"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="{Binding DescriptionText}"
+                       FontSize="12"
+                       Foreground="#64748B"
+                       HorizontalAlignment="Center"
+                       Margin="0,4,0,12"/>
+            <Image Source="{Binding BankQrImage}"
+                   Width="250"
+                   Height="250"
+                   Stretch="Uniform"
+                   Visibility="{Binding IsBankTransfer, Converter={StaticResource BooleanToVisibilityConverter}}"
+                   Margin="0,0,0,10"/>
+            <TextBlock Text="Quét mã QR bằng ứng dụng ngân hàng"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Foreground="#166534"
+                       HorizontalAlignment="Center"
+                       Visibility="{Binding IsBankTransfer, Converter={StaticResource BooleanToVisibilityConverter}}"
+                       Margin="0,0,0,8"/>
+            <TextBlock Text="{Binding AmountText}"
+                       FontSize="24"
+                       FontWeight="Bold"
+                       Foreground="#B91C1C"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="{Binding TicketCodeText}"
+                       FontSize="13"
+                       Foreground="#475569"
+                       HorizontalAlignment="Center"
+                       Margin="0,5,0,14"/>
+            <TextBlock Text="Bạn sẽ được chuyển tới trang VNPay Sandbox để thanh toán."
+                       FontSize="12"
+                       FontStyle="Italic"
+                       Foreground="#64748B"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Visibility="{Binding IsVnPay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                       Margin="0,12,0,18"/>
+            <TextBlock Text="{Binding BankTransferInstruction}"
+                       FontSize="12"
+                       FontStyle="Italic"
+                       Foreground="#64748B"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding IsBankTransfer, Converter={StaticResource BooleanToVisibilityConverter}}"
+                       Margin="0,2,0,18"/>
+            <Button Content="Mở lại trang VNPay"
+                    Click="OpenGateway_Click"
+                    Height="42"
+                    Width="300"
+                    Background="#16A34A"
+                    Foreground="White"
+                    FontWeight="Bold"
+                    BorderThickness="0"
+                    Margin="0,0,0,10"
+                    Visibility="{Binding IsVnPay, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            <Button Content="Đã chuyển khoản — đóng cửa sổ"
+                    Click="Close_Click"
+                    Height="42"
+                    Width="300"
+                    Background="#16A34A"
+                    Foreground="White"
+                    FontWeight="Bold"
+                    BorderThickness="0"
+                    Margin="0,0,0,10"
+                    Visibility="{Binding IsBankTransfer, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            <Button Content="Đóng (giao dịch vẫn đang chờ xác minh)"
+                    Click="Close_Click"
+                    Height="36"
+                    Width="300"
+                    Background="#94A3B8"
+                    Foreground="White"
+                    BorderThickness="0"
+                    Visibility="{Binding IsVnPay, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+        </StackPanel>
+    </Grid>
+</Window>

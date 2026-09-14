@@ -1,5 +1,6 @@
 using BusTicketSaleSystem.Common;
 using BusTicketSaleSystem.Services;
+using BusTicketSaleSystem.Models;
 using System;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -23,11 +24,17 @@ namespace BusTicketSaleSystem.ViewModels
             set => SetProperty(ref _activeTab, value);
         }
 
-        // Current user static profile info
-        public string UserName { get; set; } = "Alex Morgan";
-        public string UserEmail { get; set; } = "alex.morgan@busxpress.com";
-        public string UserRole { get; set; } = "Gold Passenger";
-        public string UserInitials { get; set; } = "AM";
+        // Current user profile info
+        public string UserName { get; set; } = CurrentUser.Account?.Username ?? "Guest";
+        public string UserEmail { get; set; } = CurrentUser.Account?.Email ?? string.Empty;
+        public string UserRole { get; set; } = CurrentUser.Account?.Role ?? "Customer";
+        public string UserInitials { get; set; } = GetInitials(CurrentUser.Account?.Username);
+
+        private static string GetInitials(string? username)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return "GU";
+            return username.Length == 1 ? username.ToUpperInvariant() : username[..2].ToUpperInvariant();
+        }
 
         // Navigation Commands
         public ICommand NavigateHomeCommand { get; }
@@ -91,16 +98,17 @@ namespace BusTicketSaleSystem.ViewModels
             {
                 RequestLogout?.Invoke(this, EventArgs.Empty);
             });
+
+            _navigationService.NavigateTo<HomeViewModel>();
         }
 
         private void UpdateActiveTabFromCurrentViewModel()
         {
             if (CurrentViewModel is HomeViewModel) ActiveTab = "Overview";
-            else if (CurrentViewModel is BookingViewModel) ActiveTab = "Booking";
-            else if (CurrentViewModel is MyTicketsViewModel) ActiveTab = "MyTickets";
+            else if (CurrentViewModel is BookingViewModel or SeatSelectionViewModel or BookingConfirmationViewModel) ActiveTab = "Booking";
+            else if (CurrentViewModel is MyTicketsViewModel or TicketViewModel) ActiveTab = "MyTickets";
             else if (CurrentViewModel is HistoryViewModel) ActiveTab = "History";
             else if (CurrentViewModel is ProfileViewModel) ActiveTab = "Account";
-            else if (CurrentViewModel is TicketViewModel) ActiveTab = "MyTickets";
         }
     }
 }

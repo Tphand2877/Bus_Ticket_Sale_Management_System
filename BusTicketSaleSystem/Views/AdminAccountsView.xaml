@@ -1,0 +1,132 @@
+<UserControl x:Class="BusTicketSaleSystem.Views.AdminAccountsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:common="clr-namespace:BusTicketSaleSystem.Common"
+             FontFamily="{StaticResource AppFont}">
+
+    <UserControl.Resources>
+        <common:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+        <common:TabActiveBrushConverter x:Key="RoleBgConverter" ActiveBrush="#EFF6FF" InactiveBrush="#F1F5F9"/>
+        <common:TabActiveTextBrushConverter x:Key="RoleFgConverter" ActiveBrush="#1D4ED8" InactiveBrush="#475569"/>
+    </UserControl.Resources>
+
+    <StackPanel Margin="0,0,0,30">
+        <!-- Header -->
+        <Grid Margin="0,0,0,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="User Account Management" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="Quản lý danh sách tài khoản người dùng và phân quyền hệ thống (Customer / Admin)"
+                           FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+            </StackPanel>
+
+            <Button Grid.Column="1"
+                    Content="Tải lại danh sách"
+                    Command="{Binding RefreshCommand}"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Padding="16,8"
+                    VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- Search Bar & Filters -->
+        <Border Style="{StaticResource CardStyle}" Padding="16" Margin="0,0,0,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="Tìm kiếm:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{StaticResource TextSecondaryBrush}"/>
+                <TextBox Grid.Column="1"
+                         Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource ModernTextBoxStyle}"
+                         Height="38"
+                         ToolTip="Tìm theo username, họ tên hoặc email..."/>
+            </Grid>
+        </Border>
+
+        <!-- Status / Feedback Banner -->
+        <Border Background="{StaticResource PrimaryLightBrush}"
+                BorderBrush="{StaticResource PrimaryTintBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12,8"
+                Margin="0,0,0,16"
+                Visibility="{Binding Message, Converter={StaticResource StringToVisibilityConverter}}">
+            <TextBlock Text="{Binding Message}" Foreground="{StaticResource PrimaryBrush}" FontWeight="Medium" FontSize="13"/>
+        </Border>
+
+        <!-- Accounts List Table -->
+        <Border Style="{StaticResource CardStyle}" Padding="0" Margin="0,0,0,16">
+            <StackPanel>
+                <!-- Table Header -->
+                <Border Background="#F8FAFC" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="18,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="180"/>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="130"/>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="ID" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Grid.Column="1" Text="TÀI KHOẢN" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Grid.Column="2" Text="HỌ VÀ TÊN" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Grid.Column="3" Text="EMAIL" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Grid.Column="4" Text="SỐ ĐT" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Grid.Column="5" Text="VAI TRÒ" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Grid.Column="6" Text="THAO TÁC" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Right"/>
+                    </Grid>
+                </Border>
+
+                <!-- Table Rows -->
+                <ItemsControl ItemsSource="{Binding Accounts}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="18,14">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="180"/>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="130"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0" Text="{Binding AccountId, StringFormat='#{0}'}" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Username}" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding FullName}" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding Email, TargetNullValue='—'}" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="4" Text="{Binding Phone, TargetNullValue='—'}" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+
+                                    <Border Grid.Column="5" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                            Background="{Binding Role, Converter={StaticResource RoleBgConverter}, ConverterParameter=Admin}">
+                                        <TextBlock Text="{Binding RoleBadge}" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{Binding Role, Converter={StaticResource RoleFgConverter}, ConverterParameter=Admin}"/>
+                                    </Border>
+
+                                    <Button Grid.Column="6"
+                                            Content="Chuyển quyền"
+                                            Command="{Binding DataContext.ToggleRoleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            Padding="12,5"
+                                            FontSize="12"
+                                            HorizontalAlignment="Right"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

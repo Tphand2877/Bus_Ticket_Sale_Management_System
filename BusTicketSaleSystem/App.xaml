@@ -3,7 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:BusTicketSaleSystem.ViewModels"
              xmlns:views="clr-namespace:BusTicketSaleSystem.Views"
-             StartupUri="Views/LoginWindow.xaml"
              ShutdownMode="OnLastWindowClose">
     <Application.Resources>
         <ResourceDictionary>
@@ -51,7 +50,21 @@
             <DataTemplate DataType="{x:Type vm:TicketViewModel}">
                 <views:TicketView />
             </DataTemplate>
-
+            <DataTemplate DataType="{x:Type vm:AdminDashboardViewModel}">
+                <views:AdminDashboardView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AdminRouteManagementViewModel}">
+                <views:AdminRouteManagementView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AdminBusManagementViewModel}">
+                <views:AdminBusManagementView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AdminTripManagementViewModel}">
+                <views:AdminTripManagementView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AdminAccountsViewModel}">
+                <views:AdminAccountsView />
+            </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

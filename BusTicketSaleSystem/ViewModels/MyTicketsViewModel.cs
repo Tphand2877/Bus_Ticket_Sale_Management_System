@@ -1,114 +1,133 @@
 using BusTicketSaleSystem.Common;
+using BusTicketSaleSystem.Data;
+using BusTicketSaleSystem.Models;
 using BusTicketSaleSystem.Services;
-using System;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 
-namespace BusTicketSaleSystem.ViewModels
+namespace BusTicketSaleSystem.ViewModels;
+
+public sealed class MyTicketsViewModel : ViewModelBase
 {
-    /// <summary>
-    /// ViewModel for My Tickets screen.
-    /// Displays prototype mock data of active and upcoming booked tickets.
-    /// </summary>
-    public class MyTicketsViewModel : ViewModelBase
+    private readonly INavigationService _navigationService;
+    private string _statusMessage = string.Empty;
+    private bool _isBusy;
+
+    public ObservableCollection<TicketItemViewModel> Tickets { get; } = new();
+    public string StatusMessage { get => _statusMessage; private set => SetProperty(ref _statusMessage, value); }
+    public bool IsBusy
     {
-        private readonly INavigationService _navigationService;
-        private TicketItemViewModel? _selectedTicket;
-
-        public ObservableCollection<TicketItemViewModel> Tickets { get; } = new();
-
-        public TicketItemViewModel? SelectedTicket
+        get => _isBusy;
+        private set
         {
-            get => _selectedTicket;
-            set => SetProperty(ref _selectedTicket, value);
+            if (SetProperty(ref _isBusy, value))
+            {
+                OnPropertyChanged(nameof(HasNoTickets));
+                OnPropertyChanged(nameof(HasTickets));
+            }
         }
+    }
+    public bool HasTickets => Tickets.Count > 0;
+    public bool HasNoTickets => !IsBusy && Tickets.Count == 0;
 
-        public ICommand ViewDetailsCommand { get; }
-        public ICommand BookNewTicketCommand { get; }
+    public ICommand ViewDetailsCommand { get; }
+    public ICommand CancelTicketCommand { get; }
+    public ICommand BookNewTicketCommand { get; }
+    public ICommand RefreshCommand { get; }
 
-        public MyTicketsViewModel(INavigationService navigationService)
+    public MyTicketsViewModel(INavigationService navigationService)
+    {
+        _navigationService = navigationService;
+
+        ViewDetailsCommand = new RelayCommand(parameter =>
         {
-            _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
-
-            ViewDetailsCommand = new RelayCommand(() =>
+            if (parameter is TicketItemViewModel item)
             {
-                _navigationService.NavigateTo<TicketViewModel>();
-            });
+                _navigationService.NavigateTo(new TicketViewModel(_navigationService, item.Ticket));
+            }
+        });
 
-            BookNewTicketCommand = new RelayCommand(() =>
+        CancelTicketCommand = new RelayCommand(async parameter =>
+        {
+            if (parameter is TicketItemViewModel item)
             {
-                _navigationService.NavigateTo<BookingViewModel>();
-            });
+                await CancelTicketAsync(item.Ticket.TicketId);
+            }
+        });
 
-            LoadMockTickets();
+        BookNewTicketCommand = new RelayCommand(() => _navigationService.NavigateTo<BookingViewModel>());
+        RefreshCommand = new RelayCommand(async () => await LoadAsync());
+
+        _ = LoadAsync();
+    }
+
+    private async Task CancelTicketAsync(int ticketId)
+    {
+        if (CurrentUser.Account is null) return;
+        IsBusy = true;
+        try
+        {
+            var result = await DatabaseHelper.CancelTicketAsync(ticketId, CurrentUser.Account.AccountId);
+            if (result.Success)
+            {
+                StatusMessage = "Hủy vé thành công. Vé đã được chuyển sang phần Lịch sử chuyến đi.";
+                await LoadAsync();
+            }
+            else
+            {
+                StatusMessage = result.Error ?? "Không thể hủy vé.";
+            }
         }
-
-        private void LoadMockTickets()
+        catch
         {
-            Tickets.Add(new TicketItemViewModel
-            {
-                TicketCode = "TK-2026-8921",
-                Route = "Hanoi → Da Nang",
-                Date = "Oct 16, 2026",
-                Time = "07:30 PM",
-                BusOperator = "Phuong Trang Express (FUTA)",
-                BusType = "VIP Sleeper 34 Beds",
-                SeatNumber = "A-08",
-                BoardingPoint = "My Dinh Terminal, Bay 4B",
-                Price = "$28.50",
-                Status = "Confirmed",
-                StatusColor = "#10B981" // Green
-            });
-
-            Tickets.Add(new TicketItemViewModel
-            {
-                TicketCode = "TK-2026-9042",
-                Route = "Da Nang → Hoi An",
-                Date = "Oct 19, 2026",
-                Time = "02:00 PM",
-                BusOperator = "Hoi An Shuttle Bus",
-                BusType = "Comfort Mini-Coach",
-                SeatNumber = "12",
-                BoardingPoint = "Cham Museum Stop",
-                Price = "$6.00",
-                Status = "Confirmed",
-                StatusColor = "#10B981"
-            });
-
-            Tickets.Add(new TicketItemViewModel
-            {
-                TicketCode = "TK-2026-9115",
-                Route = "Da Nang → Hanoi",
-                Date = "Oct 24, 2026",
-                Time = "08:00 PM",
-                BusOperator = "Hoang Long Bus",
-                BusType = "Royal Sleeper Limousine",
-                SeatNumber = "B-03",
-                BoardingPoint = "Da Nang Central Station",
-                Price = "$29.00",
-                Status = "Payment Pending",
-                StatusColor = "#F59E0B" // Amber
-            });
-
-            SelectedTicket = Tickets[0];
+            StatusMessage = "Lỗi khi xử lý hủy vé.";
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
-    /// <summary>
-    /// Lightweight ViewModel representation of a ticket item for the list.
-    /// </summary>
-    public class TicketItemViewModel : ViewModelBase
+    private async Task LoadAsync()
     {
-        public string TicketCode { get; set; } = string.Empty;
-        public string Route { get; set; } = string.Empty;
-        public string Date { get; set; } = string.Empty;
-        public string Time { get; set; } = string.Empty;
-        public string BusOperator { get; set; } = string.Empty;
-        public string BusType { get; set; } = string.Empty;
-        public string SeatNumber { get; set; } = string.Empty;
-        public string BoardingPoint { get; set; } = string.Empty;
-        public string Price { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
-        public string StatusColor { get; set; } = "#10B981";
+        if (CurrentUser.Account is null) return;
+        IsBusy = true;
+        try
+        {
+            Tickets.Clear();
+            var tickets = await DatabaseHelper.GetTicketsAsync(CurrentUser.Account.AccountId, false);
+            foreach (var ticket in tickets)
+            {
+                Tickets.Add(new TicketItemViewModel(ticket));
+            }
+        }
+        catch
+        {
+            StatusMessage = "Không thể tải danh sách vé từ cơ sở dữ liệu.";
+        }
+        finally
+        {
+            IsBusy = false;
+            OnPropertyChanged(nameof(HasTickets));
+            OnPropertyChanged(nameof(HasNoTickets));
+        }
     }
+}
+
+public sealed class TicketItemViewModel : ViewModelBase
+{
+    public TicketDetails Ticket { get; }
+    public string TicketCode => Ticket.TicketCode;
+    public string Route => Ticket.Route;
+    public string Date => Ticket.DepartureTime.ToString("dd/MM/yyyy");
+    public string Time => Ticket.DepartureTime.ToString("HH:mm");
+    public string BusOperator => string.IsNullOrWhiteSpace(Ticket.BusType) ? "OmniBus Express" : Ticket.BusType;
+    public string BusType => Ticket.BusType;
+    public string SeatNumber => Ticket.SeatNumber;
+    public string BoardingPoint => $"{Ticket.Origin} (Bến xe trung tâm)";
+    public string Price => $"{Ticket.Price:N0} VND";
+    public string Status => Ticket.Status;
+    public bool CanCancel => Ticket.Status != "Đã hủy" && Ticket.Status != "Đã sử dụng";
+
+    public TicketItemViewModel(TicketDetails ticket) => Ticket = ticket;
 }

@@ -1,41 +1,91 @@
 using BusTicketSaleSystem.Common;
+using BusTicketSaleSystem.Models;
 using BusTicketSaleSystem.Services;
+using Microsoft.Win32;
+using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 
-namespace BusTicketSaleSystem.ViewModels
+namespace BusTicketSaleSystem.ViewModels;
+
+public sealed class TicketViewModel : ViewModelBase
 {
-    // TODO: teammate will replace this with real logic
-    /// <summary>
-    /// Placeholder ViewModel for Ticket View (E-Ticket boarding pass details & QR/Barcode).
-    /// Out of UI scope — to be implemented by teammate in Phase 2.
-    /// </summary>
-    public class TicketViewModel : ViewModelBase
+    private readonly INavigationService _navigationService;
+    public TicketDetails Ticket { get; }
+    public BitmapImage QrCodeImage { get; }
+    public ICommand BackToOverviewCommand { get; }
+    public ICommand BackToMyTicketsCommand { get; }
+    public ICommand PrintTicketCommand { get; }
+    public ICommand ExportPngCommand { get; }
+    public ICommand ExportPdfCommand { get; }
+
+    public TicketViewModel(INavigationService navigationService, TicketDetails ticket)
     {
-        private readonly INavigationService? _navigationService;
+        _navigationService = navigationService;
+        Ticket = ticket;
+        QrCodeImage = TicketPrintService.GenerateQrCodeImage(ticket.TicketCode);
+        BackToOverviewCommand = new RelayCommand(() => _navigationService.NavigateTo<HomeViewModel>());
+        BackToMyTicketsCommand = new RelayCommand(() => _navigationService.NavigateTo<MyTicketsViewModel>());
+        PrintTicketCommand = new RelayCommand(PrintTicket);
+        ExportPngCommand = new RelayCommand(ExportPng);
+        ExportPdfCommand = new RelayCommand(ExportPdf);
+    }
 
-        public string Title { get; } = "E-Ticket Boarding Pass Details";
-        public string Note { get; } = "This section is assigned to teammate: Full boarding pass rendering, QR code, and print/download.";
+    private TicketPrintModel GetPrintModel() => TicketPrintModel.FromTicket(Ticket);
 
-        public ICommand? BackToOverviewCommand { get; }
-        public ICommand? BackToMyTicketsCommand { get; }
-
-        public TicketViewModel(INavigationService navigationService)
+    private void PrintTicket()
+    {
+        try
         {
-            _navigationService = navigationService;
-
-            BackToOverviewCommand = new RelayCommand(() =>
-            {
-                _navigationService?.NavigateTo<HomeViewModel>();
-            });
-
-            BackToMyTicketsCommand = new RelayCommand(() =>
-            {
-                _navigationService?.NavigateTo<MyTicketsViewModel>();
-            });
+            TicketPrintService.PrintTicket(GetPrintModel());
         }
-
-        public TicketViewModel()
+        catch (Exception ex)
         {
+            MessageBox.Show($"Không thể in vé: {ex.Message}", "In vé", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ExportPng()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "PNG Image (*.png)|*.png",
+            DefaultExt = ".png",
+            AddExtension = true,
+            FileName = $"Ticket_{Ticket.TicketCode}.png"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            TicketPrintService.ExportToPng(GetPrintModel(), dialog.FileName);
+            MessageBox.Show($"Đã xuất vé PNG tại:\n{dialog.FileName}", "Xuất vé", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Không thể xuất PNG: {ex.Message}", "Xuất vé", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ExportPdf()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "PDF Document (*.pdf)|*.pdf",
+            DefaultExt = ".pdf",
+            AddExtension = true,
+            FileName = $"Ticket_{Ticket.TicketCode}.pdf"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            TicketPrintService.ExportToPdf(GetPrintModel(), dialog.FileName);
+            MessageBox.Show($"Đã xuất vé PDF tại:\n{dialog.FileName}", "Xuất vé", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Không thể xuất PDF: {ex.Message}", "Xuất vé", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 }

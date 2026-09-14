@@ -4,19 +4,27 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:BusTicketSaleSystem.ViewModels"
+        xmlns:common="clr-namespace:BusTicketSaleSystem.Common"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="OmniBus Express - Bus Ticket Sale &amp; Management System"
-        Height="820" Width="1240"
-        MinHeight="680" MinWidth="1000"
+        Height="840" Width="1280"
+        MinHeight="700" MinWidth="1080"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BackgroundBrush}"
         FontFamily="{StaticResource AppFont}">
 
+    <Window.Resources>
+        <common:TabActiveBrushConverter x:Key="NavBgConverter" ActiveBrush="{StaticResource PrimaryBrush}" InactiveBrush="Transparent"/>
+        <common:TabActiveTextBrushConverter x:Key="NavFgConverter" ActiveBrush="White" InactiveBrush="#94A3B8"/>
+        <common:TabActiveBrushConverter x:Key="NavIconConverter" ActiveBrush="#60A5FA" InactiveBrush="#64748B"/>
+        <common:TabActiveBrushConverter x:Key="NavIndicatorConverter" ActiveBrush="{StaticResource AccentBrush}" InactiveBrush="Transparent"/>
+    </Window.Resources>
+
     <Grid>
         <Grid.ColumnDefinitions>
             <!-- Left Sidebar -->
-            <ColumnDefinition Width="250"/>
+            <ColumnDefinition Width="260"/>
             <!-- Main Content Area -->
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
@@ -25,7 +33,7 @@
              LEFT SIDEBAR NAVIGATION
              ==================================================== -->
         <Border Grid.Column="0" Background="{StaticResource SidebarBgBrush}">
-            <Grid Margin="18,20,18,20">
+            <Grid Margin="16,24,16,20">
                 <Grid.RowDefinitions>
                     <!-- Brand / Logo -->
                     <RowDefinition Height="Auto"/>
@@ -35,77 +43,199 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Brand / Logo Header -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="4,4,4,28">
-                    <Border Width="40" Height="40" CornerRadius="10" Background="{StaticResource PrimaryBrush}" VerticalAlignment="Center">
-                        <TextBlock Text="🚌" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <!-- Brand Header -->
+                <Grid Grid.Row="0" Margin="8,0,8,28">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="42" Height="42"
+                            CornerRadius="10"
+                            Background="#2563EB"
+                            VerticalAlignment="Center">
+                        <Path Data="{StaticResource IconBus}"
+                              Fill="White"
+                              Width="22" Height="22"
+                              Stretch="Uniform"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"/>
                     </Border>
-                    <StackPanel VerticalAlignment="Center" Margin="12,0,0,0">
-                        <TextBlock Text="OmniBus" FontSize="18" FontWeight="Bold" Foreground="White"/>
-                        <TextBlock Text="TICKET SYSTEM" FontSize="10" FontWeight="SemiBold" Foreground="#38BDF8"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <TextBlock Text="OmniBus" FontSize="19" FontWeight="Bold" Foreground="White"/>
+                        <TextBlock Text="EXPRESS TRANSIT" FontSize="10" FontWeight="Bold" Foreground="#38BDF8" Margin="0,1,0,0"/>
                     </StackPanel>
-                </StackPanel>
+                </Grid>
 
                 <!-- Navigation Links -->
                 <StackPanel Grid.Row="1">
-                    <TextBlock Text="NAVIGATION"
+                    <TextBlock Text="MAIN MENU"
                                FontSize="11"
                                FontWeight="Bold"
-                               Foreground="#64748B"
+                               Foreground="#475569"
                                Margin="12,0,0,10"/>
 
-                    <!-- 🏠 Overview / Dashboard -->
+                    <!-- 1. Overview -->
                     <Button Style="{StaticResource SidebarButtonStyle}"
-                            Command="{Binding NavigateHomeCommand}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🏠" FontSize="16" Width="26"/>
-                            <TextBlock Text="Overview" FontSize="14" FontWeight="Medium"/>
-                        </StackPanel>
+                            Command="{Binding NavigateHomeCommand}"
+                            Background="{Binding ActiveTab, Converter={StaticResource NavBgConverter}, ConverterParameter=Overview}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0"
+                                    Width="3" Height="18"
+                                    CornerRadius="1.5"
+                                    Background="{Binding ActiveTab, Converter={StaticResource NavIndicatorConverter}, ConverterParameter=Overview}"
+                                    HorizontalAlignment="Left"/>
+                            <Path Grid.Column="1"
+                                  Data="{StaticResource IconDashboard}"
+                                  Fill="{Binding ActiveTab, Converter={StaticResource NavIconConverter}, ConverterParameter=Overview}"
+                                  Width="18" Height="18"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Center"
+                                  HorizontalAlignment="Left"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="Overview"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="{Binding ActiveTab, Converter={StaticResource NavFgConverter}, ConverterParameter=Overview}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
                     </Button>
 
-                    <!-- 🔍 Book a Ticket -->
+                    <!-- 2. Book a Ticket -->
                     <Button Style="{StaticResource SidebarButtonStyle}"
-                            Command="{Binding NavigateBookingCommand}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔍" FontSize="16" Width="26"/>
-                            <TextBlock Text="Book a Ticket" FontSize="14" FontWeight="Medium"/>
-                        </StackPanel>
+                            Command="{Binding NavigateBookingCommand}"
+                            Background="{Binding ActiveTab, Converter={StaticResource NavBgConverter}, ConverterParameter=Booking}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0"
+                                    Width="3" Height="18"
+                                    CornerRadius="1.5"
+                                    Background="{Binding ActiveTab, Converter={StaticResource NavIndicatorConverter}, ConverterParameter=Booking}"
+                                    HorizontalAlignment="Left"/>
+                            <Path Grid.Column="1"
+                                  Data="{StaticResource IconSearch}"
+                                  Fill="{Binding ActiveTab, Converter={StaticResource NavIconConverter}, ConverterParameter=Booking}"
+                                  Width="18" Height="18"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Center"
+                                  HorizontalAlignment="Left"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="Book a Ticket"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="{Binding ActiveTab, Converter={StaticResource NavFgConverter}, ConverterParameter=Booking}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
                     </Button>
 
-                    <!-- 🎫 My Tickets -->
+                    <!-- 3. My Tickets -->
                     <Button Style="{StaticResource SidebarButtonStyle}"
-                            Command="{Binding NavigateMyTicketsCommand}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🎫" FontSize="16" Width="26"/>
-                            <TextBlock Text="My Tickets" FontSize="14" FontWeight="Medium"/>
-                        </StackPanel>
+                            Command="{Binding NavigateMyTicketsCommand}"
+                            Background="{Binding ActiveTab, Converter={StaticResource NavBgConverter}, ConverterParameter=MyTickets}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0"
+                                    Width="3" Height="18"
+                                    CornerRadius="1.5"
+                                    Background="{Binding ActiveTab, Converter={StaticResource NavIndicatorConverter}, ConverterParameter=MyTickets}"
+                                    HorizontalAlignment="Left"/>
+                            <Path Grid.Column="1"
+                                  Data="{StaticResource IconTicket}"
+                                  Fill="{Binding ActiveTab, Converter={StaticResource NavIconConverter}, ConverterParameter=MyTickets}"
+                                  Width="18" Height="18"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Center"
+                                  HorizontalAlignment="Left"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="My Tickets"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="{Binding ActiveTab, Converter={StaticResource NavFgConverter}, ConverterParameter=MyTickets}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
                     </Button>
 
-                    <!-- 🕘 History -->
+                    <!-- 4. Travel History -->
                     <Button Style="{StaticResource SidebarButtonStyle}"
-                            Command="{Binding NavigateHistoryCommand}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🕘" FontSize="16" Width="26"/>
-                            <TextBlock Text="History" FontSize="14" FontWeight="Medium"/>
-                        </StackPanel>
+                            Command="{Binding NavigateHistoryCommand}"
+                            Background="{Binding ActiveTab, Converter={StaticResource NavBgConverter}, ConverterParameter=History}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0"
+                                    Width="3" Height="18"
+                                    CornerRadius="1.5"
+                                    Background="{Binding ActiveTab, Converter={StaticResource NavIndicatorConverter}, ConverterParameter=History}"
+                                    HorizontalAlignment="Left"/>
+                            <Path Grid.Column="1"
+                                  Data="{StaticResource IconClock}"
+                                  Fill="{Binding ActiveTab, Converter={StaticResource NavIconConverter}, ConverterParameter=History}"
+                                  Width="18" Height="18"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Center"
+                                  HorizontalAlignment="Left"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="History"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="{Binding ActiveTab, Converter={StaticResource NavFgConverter}, ConverterParameter=History}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
                     </Button>
 
-                    <!-- 👤 Account -->
+                    <!-- 5. Profile & Settings -->
                     <Button Style="{StaticResource SidebarButtonStyle}"
-                            Command="{Binding NavigateProfileCommand}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="👤" FontSize="16" Width="26"/>
-                            <TextBlock Text="Account" FontSize="14" FontWeight="Medium"/>
-                        </StackPanel>
+                            Command="{Binding NavigateProfileCommand}"
+                            Background="{Binding ActiveTab, Converter={StaticResource NavBgConverter}, ConverterParameter=Account}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0"
+                                    Width="3" Height="18"
+                                    CornerRadius="1.5"
+                                    Background="{Binding ActiveTab, Converter={StaticResource NavIndicatorConverter}, ConverterParameter=Account}"
+                                    HorizontalAlignment="Left"/>
+                            <Path Grid.Column="1"
+                                  Data="{StaticResource IconUser}"
+                                  Fill="{Binding ActiveTab, Converter={StaticResource NavIconConverter}, ConverterParameter=Account}"
+                                  Width="18" Height="18"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Center"
+                                  HorizontalAlignment="Left"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="Profile &amp; Security"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="{Binding ActiveTab, Converter={StaticResource NavFgConverter}, ConverterParameter=Account}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
                     </Button>
                 </StackPanel>
 
-                <!-- User Profile & Logout Bottom Card -->
+                <!-- Bottom User Card & Logout -->
                 <Border Grid.Row="2"
-                        Background="#1E293B"
-                        CornerRadius="10"
-                        Padding="12"
-                        BorderBrush="#334155"
+                        Background="#101B38"
+                        CornerRadius="12"
+                        Padding="14,12"
+                        BorderBrush="#1E293B"
                         BorderThickness="1">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -114,11 +244,11 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Avatar Circle -->
+                        <!-- Initials Avatar -->
                         <Border Grid.Column="0"
-                                Width="36" Height="36"
-                                CornerRadius="18"
-                                Background="{StaticResource PrimaryBrush}"
+                                Width="38" Height="38"
+                                CornerRadius="19"
+                                Background="#2563EB"
                                 VerticalAlignment="Center">
                             <TextBlock Text="{Binding UserInitials}"
                                        Foreground="White"
@@ -128,8 +258,8 @@
                                        VerticalAlignment="Center"/>
                         </Border>
 
-                        <!-- User Info -->
-                        <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
+                        <!-- User Names -->
+                        <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
                             <TextBlock Text="{Binding UserName}"
                                        Foreground="White"
                                        FontSize="13"
@@ -137,18 +267,23 @@
                                        TextTrimming="CharacterEllipsis"/>
                             <TextBlock Text="{Binding UserRole}"
                                        Foreground="#94A3B8"
-                                       FontSize="11"/>
+                                       FontSize="11"
+                                       Margin="0,1,0,0"/>
                         </StackPanel>
 
-                        <!-- Logout Button -->
+                        <!-- Logout Icon Button -->
                         <Button Grid.Column="2"
                                 Command="{Binding LogoutCommand}"
                                 ToolTip="Sign Out"
                                 Cursor="Hand"
                                 Background="Transparent"
                                 BorderThickness="0"
-                                Padding="6">
-                            <TextBlock Text="🚪" FontSize="16"/>
+                                Padding="8"
+                                VerticalAlignment="Center">
+                            <Path Data="{StaticResource IconLogout}"
+                                  Fill="#94A3B8"
+                                  Width="16" Height="16"
+                                  Stretch="Uniform"/>
                         </Button>
                     </Grid>
                 </Border>
@@ -156,22 +291,22 @@
         </Border>
 
         <!-- ====================================================
-             MAIN CONTENT SHELL (Top bar + Central ContentControl)
+             MAIN CONTENT SHELL
              ==================================================== -->
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
-                <!-- Top Bar -->
-                <RowDefinition Height="64"/>
-                <!-- Central Content -->
+                <!-- Top Header Bar -->
+                <RowDefinition Height="68"/>
+                <!-- Central Content Frame -->
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Top Bar Header -->
+            <!-- Top Header Bar -->
             <Border Grid.Row="0"
                     Background="White"
                     BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="0,0,0,1"
-                    Padding="24,0">
+                    Padding="28,0">
                 <Grid VerticalAlignment="Center">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -180,46 +315,48 @@
 
                     <!-- Left: Current Section / Breadcrumb -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Dashboard / " FontSize="13" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text="Portal" FontSize="13" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text=" / " FontSize="13" Foreground="{StaticResource TextMutedBrush}" Margin="4,0"/>
                         <TextBlock Text="{Binding ActiveTab}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
                     </StackPanel>
 
-                    <!-- Right: Prototype Status Badge & Info -->
+                    <!-- Right: Quick Booking CTA & User Badge -->
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Background="#FEF3C7"
-                                BorderBrush="#FDE68A"
-                                BorderThickness="1"
-                                CornerRadius="12"
-                                Padding="10,4"
-                                Margin="0,0,16,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="⚡" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                <TextBlock Text="Phase 1 Prototype Mode"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"
-                                           Foreground="#92400E"/>
-                            </StackPanel>
-                        </Border>
+                        <Button Content="+ Book a Trip"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Command="{Binding NavigateBookingCommand}"
+                                Height="36"
+                                Padding="16,0"
+                                Margin="0,0,16,0"/>
 
-                        <Border Background="{StaticResource PrimaryLightBrush}"
-                                CornerRadius="8"
-                                Padding="10,6">
-                            <TextBlock Text="👤 Logged in as Alex Morgan"
-                                       FontSize="12"
-                                       FontWeight="Medium"
-                                       Foreground="{StaticResource PrimaryBrush}"/>
+                        <!-- User Chip -->
+                        <Border Background="{StaticResource SurfaceMutedBrush}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="20"
+                                Padding="12,6">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Width="20" Height="20" CornerRadius="10" Background="{StaticResource PrimaryBrush}" Margin="0,0,8,0">
+                                    <Path Data="{StaticResource IconUser}" Fill="White" Width="10" Height="10" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="{Binding UserName}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
                         </Border>
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- Main Central Content Control bound to CurrentViewModel -->
+            <!-- Main Central Content Control -->
             <ScrollViewer Grid.Row="1"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           Focusable="False">
                 <ContentControl Content="{Binding CurrentViewModel}"
-                                Margin="24"/>
+                                Margin="28,24"/>
             </ScrollViewer>
         </Grid>
     </Grid>

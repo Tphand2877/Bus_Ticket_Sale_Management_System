@@ -1,4 +1,6 @@
 using System.Windows;
+using BusTicketSaleSystem.Data;
+using BusTicketSaleSystem.Models;
 
 namespace BusTicketSaleSystem.Views
 {
@@ -13,23 +15,50 @@ namespace BusTicketSaleSystem.Views
             InitializeComponent();
         }
 
-        private void LoginButton_Click(object sender, RoutedEventArgs e)
+        private async void LoginButton_Click(object sender, RoutedEventArgs e)
         {
-            // Simple validation: fields not empty check
-            if (string.IsNullOrWhiteSpace(TxtUsername.Text))
+            var usernameOrEmail = TxtUsername.Text.Trim();
+            var password = TxtPassword.Password;
+
+            if (string.IsNullOrWhiteSpace(usernameOrEmail) || string.IsNullOrWhiteSpace(password))
             {
-                TxtError.Text = "Please enter a username or email address.";
+                TxtError.Text = "Vui lòng nhập tên đăng nhập/email và mật khẩu.";
                 TxtError.Visibility = Visibility.Visible;
                 return;
             }
 
-            // Create and show MainWindow
+            BtnLogin.IsEnabled = false;
+            TxtError.Visibility = Visibility.Collapsed;
+
+            var loginResult = await DatabaseHelper.AuthenticateAsync(usernameOrEmail, password);
+            if (!loginResult.Success)
+            {
+                TxtError.Text = loginResult.Error;
+                TxtError.Visibility = Visibility.Visible;
+                BtnLogin.IsEnabled = true;
+                return;
+            }
+
+            CurrentUser.Account = loginResult.Account;
+            if (CurrentUser.IsAdmin)
+            {
+                var adminWindow = new AdminWindow();
+                Application.Current.MainWindow = adminWindow;
+                adminWindow.Show();
+                Close();
+                return;
+            }
+
             var mainWindow = new MainWindow();
             Application.Current.MainWindow = mainWindow;
             mainWindow.Show();
+            Close();
+        }
 
-            // Close LoginWindow
-            this.Close();
+        private void SignUpButton_Click(object sender, RoutedEventArgs e)
+        {
+            var signUpWindow = new SignUpWindow { Owner = this };
+            signUpWindow.ShowDialog();
         }
     }
 }
