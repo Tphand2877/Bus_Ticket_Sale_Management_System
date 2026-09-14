@@ -45,7 +45,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM Trips t JOIN Routes r ON r.RouteId=t.RouteId WHERE r.Origin=N'Hà Nội' AND r.Destination=N'Hải Phòng' AND CAST(t.DepartureTime AS DATE)=@targetDate AND DATEPART(HOUR, t.DepartureTime)=7)
     BEGIN
         INSERT INTO Trips (RouteId, BusId, DepartureTime, ArrivalTime, Price)
-        SELECT r.RouteId, 1, DATEADD(MINUTE, 30, DATEADD(HOUR, 7, CAST(@targetDate AS DATETIME2))),
+        SELECT r.RouteId, (SELECT BusId FROM Buses WHERE LicensePlate=N'29B-123.45'), DATEADD(MINUTE, 30, DATEADD(HOUR, 7, CAST(@targetDate AS DATETIME2))),
                DATEADD(MINUTE, 30, DATEADD(HOUR, 9, CAST(@targetDate AS DATETIME2))), 140000
         FROM Routes r WHERE r.Origin=N'Hà Nội' AND r.Destination=N'Hải Phòng';
     END;
@@ -53,7 +53,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM Trips t JOIN Routes r ON r.RouteId=t.RouteId WHERE r.Origin=N'Hà Nội' AND r.Destination=N'Hải Phòng' AND CAST(t.DepartureTime AS DATE)=@targetDate AND DATEPART(HOUR, t.DepartureTime)=14)
     BEGIN
         INSERT INTO Trips (RouteId, BusId, DepartureTime, ArrivalTime, Price)
-        SELECT r.RouteId, 2, DATEADD(HOUR, 14, CAST(@targetDate AS DATETIME2)),
+        SELECT r.RouteId, (SELECT BusId FROM Buses WHERE LicensePlate=N'29B-678.90'), DATEADD(HOUR, 14, CAST(@targetDate AS DATETIME2)),
                DATEADD(HOUR, 16, CAST(@targetDate AS DATETIME2)), 150000
         FROM Routes r WHERE r.Origin=N'Hà Nội' AND r.Destination=N'Hải Phòng';
     END;
@@ -61,7 +61,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM Trips t JOIN Routes r ON r.RouteId=t.RouteId WHERE r.Origin=N'Hà Nội' AND r.Destination=N'Nam Định' AND CAST(t.DepartureTime AS DATE)=@targetDate AND DATEPART(HOUR, t.DepartureTime)=10)
     BEGIN
         INSERT INTO Trips (RouteId, BusId, DepartureTime, ArrivalTime, Price)
-        SELECT r.RouteId, 1, DATEADD(MINUTE, 30, DATEADD(HOUR, 10, CAST(@targetDate AS DATETIME2))),
+        SELECT r.RouteId, (SELECT BusId FROM Buses WHERE LicensePlate=N'29B-123.45'), DATEADD(MINUTE, 30, DATEADD(HOUR, 10, CAST(@targetDate AS DATETIME2))),
                DATEADD(MINUTE, 30, DATEADD(HOUR, 12, CAST(@targetDate AS DATETIME2))), 110000
         FROM Routes r WHERE r.Origin=N'Hà Nội' AND r.Destination=N'Nam Định';
     END;
@@ -69,7 +69,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM Trips t JOIN Routes r ON r.RouteId=t.RouteId WHERE r.Origin=N'Hà Nội' AND r.Destination=N'Thanh Hóa' AND CAST(t.DepartureTime AS DATE)=@targetDate AND DATEPART(HOUR, t.DepartureTime)=8)
     BEGIN
         INSERT INTO Trips (RouteId, BusId, DepartureTime, ArrivalTime, Price)
-        SELECT r.RouteId, 2, DATEADD(HOUR, 8, CAST(@targetDate AS DATETIME2)),
+        SELECT r.RouteId, (SELECT BusId FROM Buses WHERE LicensePlate=N'29B-678.90'), DATEADD(HOUR, 8, CAST(@targetDate AS DATETIME2)),
                DATEADD(MINUTE, 30, DATEADD(HOUR, 11, CAST(@targetDate AS DATETIME2))), 180000
         FROM Routes r WHERE r.Origin=N'Hà Nội' AND r.Destination=N'Thanh Hóa';
     END;
@@ -77,7 +77,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM Trips t JOIN Routes r ON r.RouteId=t.RouteId WHERE r.Origin=N'Hà Nội' AND r.Destination=N'Ninh Bình' AND CAST(t.DepartureTime AS DATE)=@targetDate AND DATEPART(HOUR, t.DepartureTime)=15)
     BEGIN
         INSERT INTO Trips (RouteId, BusId, DepartureTime, ArrivalTime, Price)
-        SELECT r.RouteId, 1, DATEADD(MINUTE, 30, DATEADD(HOUR, 15, CAST(@targetDate AS DATETIME2))),
+        SELECT r.RouteId, (SELECT BusId FROM Buses WHERE LicensePlate=N'29B-123.45'), DATEADD(MINUTE, 30, DATEADD(HOUR, 15, CAST(@targetDate AS DATETIME2))),
                DATEADD(MINUTE, 30, DATEADD(HOUR, 17, CAST(@targetDate AS DATETIME2))), 120000
         FROM Routes r WHERE r.Origin=N'Hà Nội' AND r.Destination=N'Ninh Bình';
     END;
@@ -85,4 +85,3 @@ BEGIN
     SET @day = @day + 1;
 END;
 GO
-

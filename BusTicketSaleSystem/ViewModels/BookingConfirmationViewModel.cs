@@ -22,7 +22,7 @@ public sealed class BookingConfirmationViewModel : ViewModelBase
         "Tiền mặt (Thanh toán khi lên xe)",
         "Chuyển khoản (VietQR)"
     ];
-    private string _selectedPaymentMethod = "VNPay (Cổng thanh toán điện tử / Thẻ ATM)";
+    private string _selectedPaymentMethod = "Chuyển khoản (VietQR)";
     private string _statusMessage = string.Empty;
     private bool _isBusy;
 

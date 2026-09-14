@@ -231,7 +231,15 @@ ORDER BY COUNT(t.TripId) DESC, r.RouteId;";
 
     public static async Task<(bool Success, TicketDetails? Ticket, string? Error)> BookTicketAsync(int accountId,int tripId,int seatId,string passengerName,string? passengerPhone)
     {
-        await Services.PaymentService.ExpirePendingPaymentsAsync();
+        try
+        {
+            await Services.PaymentService.ExpirePendingPaymentsAsync();
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not expire pending payments before booking (account={accountId}, trip={tripId}, seat={seatId}).", ex);
+            return (false, null, "Không thể kết nối tới dữ liệu thanh toán. Hãy kiểm tra database và migration.");
+        }
         const string insert = "INSERT INTO Tickets(TicketCode,TripId,SeatId,AccountId,PassengerName,PassengerPhone,Price,Status,PaymentExpiresAt) SELECT @Code,tr.TripId,@SeatId,@AccountId,@Name,@Phone,tr.Price,N'Đã đặt',DATEADD(MINUTE,15,SYSUTCDATETIME()) FROM Trips tr JOIN Seats s ON s.BusId=tr.BusId WHERE tr.TripId=@TripId AND s.SeatId=@SeatId AND NOT EXISTS(SELECT 1 FROM Tickets x WHERE x.TripId=@TripId AND x.SeatId=@SeatId AND x.Status IN(N'Đã đặt',N'Đã thanh toán') AND (x.PaymentStatus=N'Đã thanh toán' OR x.PaymentExpiresAt>SYSUTCDATETIME()));";
         const string select = "SELECT TOP 1 tk.TicketId,tk.TicketCode,r.Origin+N' → '+r.Destination,tr.DepartureTime,tr.ArrivalTime,b.BusType,s.SeatNumber,tk.Price,tk.Status,tk.BookingTime,r.Origin,r.Destination,COALESCE(r.DistanceKm,0),tk.PassengerName,tk.PassengerPhone,b.LicensePlate FROM Tickets tk JOIN Trips tr ON tr.TripId=tk.TripId JOIN Routes r ON r.RouteId=tr.RouteId JOIN Buses b ON b.BusId=tr.BusId JOIN Seats s ON s.SeatId=tk.SeatId WHERE tk.TicketCode=@Code;";
         await using var connection = GetConnection(); await connection.OpenAsync(); await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.Serializable);
@@ -257,10 +265,11 @@ ORDER BY COUNT(t.TripId) DESC, r.RouteId;";
             await transaction.CommitAsync();
             return(true,ticket,null);
         }
-        catch(SqlException)
+        catch(SqlException ex)
         {
             await transaction.RollbackAsync();
-            return(false,null,"Không thể đặt vé. Vui lòng thử lại.");
+            LoggerService.LogError($"Could not book ticket (account={accountId}, trip={tripId}, seat={seatId}).", ex);
+            return(false,null,"Không thể đặt vé. Vui lòng kiểm tra kết nối database và dữ liệu chuyến xe.");
         }
     }
 

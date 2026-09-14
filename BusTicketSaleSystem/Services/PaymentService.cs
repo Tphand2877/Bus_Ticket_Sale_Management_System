@@ -22,7 +22,15 @@ public static class PaymentService
         if (request.TicketId <= 0 || string.IsNullOrWhiteSpace(request.TicketCode) || string.IsNullOrWhiteSpace(request.PaymentMethod))
             return new(false, ErrorMessage: "Thông tin thanh toán không hợp lệ.");
 
-        await ExpirePendingPaymentsAsync();
+        try
+        {
+            await ExpirePendingPaymentsAsync();
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError("Could not expire pending payments before creating a payment.", ex);
+            return new(false, ErrorMessage: "Không thể kết nối tới bảng thanh toán. Hãy chạy migration database rồi thử lại.");
+        }
 
         var normalizedMethod = request.PaymentMethod switch
         {

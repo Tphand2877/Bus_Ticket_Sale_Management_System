@@ -29,6 +29,7 @@ public static class DatabaseMigrator
             await ApplyMigrationAsync(connection, "004_Payments", "Schema_Payments.sql", skipWhenAccountsExist: false, cancellationToken);
             await ApplyMigrationAsync(connection, "005_PerformanceIndexes", "Migration_003_PerformanceIndexes.sql", skipWhenAccountsExist: false, cancellationToken);
             await ApplyMigrationAsync(connection, "006_PaymentExpiry", "Migration_004_PaymentExpiry.sql", skipWhenAccountsExist: false, cancellationToken);
+            await ApplyMigrationAsync(connection, "007_DevelopmentSeedData", "SeedData.sql", skipWhenAccountsExist: false, cancellationToken);
             return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

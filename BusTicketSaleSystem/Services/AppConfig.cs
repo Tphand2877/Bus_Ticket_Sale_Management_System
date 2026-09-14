@@ -13,12 +13,12 @@ public static class AppConfig
     public static string ConnectionString =>
         Environment.GetEnvironmentVariable("BUS_TICKET_CONNECTION_STRING")
         ?? Configuration.GetConnectionString("DefaultConnection")
-        ?? "Server=localhost;Database=BusTicketSaleSystem;Integrated Security=True;TrustServerCertificate=True;";
+        ?? "Server=localhost;Database=BusTicketSaleSystem;Integrated Security=True;TrustServerCertificate=True;Encrypt=False;";
 
     public static string MasterConnectionString =>
         Environment.GetEnvironmentVariable("BUS_TICKET_MASTER_CONNECTION_STRING")
         ?? Configuration.GetConnectionString("MasterConnection")
-        ?? "Server=localhost;Database=master;Integrated Security=True;TrustServerCertificate=True;";
+        ?? "Server=localhost;Database=master;Integrated Security=True;TrustServerCertificate=True;Encrypt=False;";
 
     public static string LogDirectory =>
         Configuration["Logging:LogDirectory"] is { Length: > 0 } value
