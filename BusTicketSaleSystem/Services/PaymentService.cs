@@ -247,6 +247,14 @@ SELECT @PaymentId, @Amount;";
             !callback.TryGetValue("vnp_ResponseCode", out var responseCode))
             return new(false, false, "The VNPay callback is missing required fields.");
 
+        // VNPay signals a captured payment with BOTH vnp_ResponseCode and
+        // vnp_TransactionStatus equal to "00". Treating the response code alone as
+        // success settles tickets for transactions the gateway did not complete
+        // (AUD-D-004). A missing field is not a success.
+        var transactionStatus = callback.GetValueOrDefault("vnp_TransactionStatus");
+        var gatewayCaptured = string.Equals(responseCode, "00", StringComparison.Ordinal)
+                              && string.Equals(transactionStatus, "00", StringComparison.Ordinal);
+
         var amount = amountUnits / 100m;
         var providerTransactionNo = callback.GetValueOrDefault("vnp_TransactionNo");
         var raw = string.Join("&", callback.OrderBy(x => x.Key, StringComparer.Ordinal).Select(x => $"{x.Key}={x.Value}"));
@@ -258,16 +266,41 @@ WHERE p.TransactionNo=@TransactionNo AND p.Amount=@Amount AND p.Status=N'Pending
  AND EXISTS(SELECT 1 FROM Tickets t WHERE t.TicketId=p.TicketId AND t.Status=N'Đã đặt' AND t.PaymentStatus=N'Chưa thanh toán' AND t.PaymentExpiresAt>SYSUTCDATETIME());
 IF @@ROWCOUNT=0
 BEGIN
- IF EXISTS(SELECT 1 FROM Payments WHERE TransactionNo=@TransactionNo AND Status=N'Success') SELECT 2; ELSE SELECT 0;
+ IF EXISTS(SELECT 1 FROM Payments WHERE TransactionNo=@TransactionNo AND Status=N'Success') SELECT 2;
+ ELSE IF @Captured=1 AND EXISTS(SELECT 1 FROM Payments WHERE TransactionNo=@TransactionNo AND Amount=@Amount AND Status IN(N'Pending',N'Failed'))
+ BEGIN
+  /* The gateway captured the money but the seat hold had already lapsed, so the
+     ticket can no longer be fulfilled. Record the capture and queue the payment
+     for an operator refund instead of silently leaving it Pending until the
+     expiry sweep marks it Failed with the customer charged (AUD-C-001). */
+  UPDATE Payments
+  SET Status=N'Success',PaidAt=SYSUTCDATETIME(),VerifiedAt=SYSUTCDATETIME(),
+      ResponseCode=@ResponseCode,RawResponse=@RawResponse,ProviderTransactionNo=@ProviderTransactionNo,
+      RefundRequestedAt=COALESCE(RefundRequestedAt,SYSUTCDATETIME()),
+      Notes=COALESCE(Notes,N'Captured by VNPay after the seat hold expired. Refund required.')
+  WHERE TransactionNo=@TransactionNo;
+  SELECT 3;
+ END
+ ELSE SELECT 0;
 END
-ELSE IF @ResponseCode=N'00'
+ELSE IF @Captured=1
 BEGIN
  UPDATE Payments SET Status=N'Success',PaidAt=SYSUTCDATETIME() WHERE TransactionNo=@TransactionNo;
  UPDATE Tickets SET PaymentStatus=N'Đã thanh toán',PaymentExpiresAt=NULL,Status=N'Đã thanh toán'
  WHERE TicketId=(SELECT TicketId FROM Payments WHERE TransactionNo=@TransactionNo) AND Status=N'Đã đặt' AND PaymentStatus=N'Chưa thanh toán';
  SELECT 1;
 END
-ELSE BEGIN UPDATE Payments SET Status=N'Failed' WHERE TransactionNo=@TransactionNo; SELECT 0; END";
+ELSE
+BEGIN
+ UPDATE Payments SET Status=N'Failed' WHERE TransactionNo=@TransactionNo;
+ /* Release the hold the declined payment was made against, otherwise the seat
+    stays blocked until the next sweep while the customer is told it was freed,
+    and a retry is refused by the payable guard (AUD-C-004). */
+ UPDATE Tickets SET Status=N'Đã hủy',CancelledAt=SYSUTCDATETIME(),PaymentExpiresAt=NULL
+ WHERE TicketId=(SELECT TicketId FROM Payments WHERE TransactionNo=@TransactionNo)
+   AND Status=N'Đã đặt' AND PaymentStatus=N'Chưa thanh toán';
+ SELECT 0;
+END";
 
         SqlTransaction? transaction = null;
         try
@@ -282,13 +315,24 @@ ELSE BEGIN UPDATE Payments SET Status=N'Failed' WHERE TransactionNo=@Transaction
             command.Parameters.Add("@ResponseCode", SqlDbType.NVarChar, 20).Value = responseCode;
             command.Parameters.Add("@ProviderTransactionNo", SqlDbType.NVarChar, 100).Value = (object?)providerTransactionNo ?? DBNull.Value;
             command.Parameters.Add("@RawResponse", SqlDbType.NVarChar, -1).Value = raw;
+            command.Parameters.Add("@Captured", SqlDbType.Bit).Value = gatewayCaptured;
             var result = Convert.ToInt32(await command.ExecuteScalarAsync(), CultureInfo.InvariantCulture);
             await transaction.CommitAsync();
-            LoggerService.LogInfo($"VNPay callback for {transactionNo} processed with response code {responseCode} (outcome {result}).");
+            LoggerService.LogInfo(
+                $"VNPay callback for {transactionNo} processed with response code {responseCode}, " +
+                $"transaction status {transactionStatus ?? "(absent)"} (outcome {result}).");
+            if (result == 3)
+            {
+                LoggerService.LogWarning(
+                    $"VNPay captured {amount} for {transactionNo} after the seat hold expired. " +
+                    "The payment is queued for an operator refund.");
+            }
             return result switch
             {
                 1 => new(true, false),
                 2 => new(true, true),
+                3 => new(false, false,
+                    "VNPay took the payment but the seat hold had already expired. The payment has been queued for a refund; contact support with the transaction reference."),
                 _ => new(false, false, "The payment was declined by VNPay or the seat hold had already expired.")
             };
         }
