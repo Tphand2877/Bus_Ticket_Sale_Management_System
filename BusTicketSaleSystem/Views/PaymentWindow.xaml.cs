@@ -1,58 +1,39 @@
-using System.Diagnostics;
+using System;
+using System.Collections.Generic;
 using System.Windows;
-using System.Windows.Media.Imaging;
+using BusTicketSaleSystem.ViewModels;
 
 namespace BusTicketSaleSystem.Views;
 
 public partial class PaymentWindow : Window
 {
-    private readonly string? _paymentUrl;
+    private readonly PaymentWindowViewModel _viewModel;
 
-    public bool IsBankTransfer { get; }
-    public bool IsVnPay => !IsBankTransfer;
-    public string TitleText => IsBankTransfer ? "THANH TOÁN QUA VIETQR" : "THANH TOÁN QUA VNPAY";
-    public string DescriptionText => IsBankTransfer
-        ? "Quét mã QR để chuyển khoản đúng số tiền vé"
-        : "Giao dịch được xác minh bởi backend và VNPay";
-    public string BankTransferInstruction =>
-        "Nội dung chuyển khoản: mã vé hiển thị bên dưới. Giao dịch sẽ được đối soát trước khi vé chuyển sang Đã thanh toán.";
-    public BitmapImage? BankQrImage { get; }
-    public string AmountText { get; }
-    public string TicketCodeText { get; }
+    public bool PaymentConfirmed => _viewModel.PaymentConfirmed;
+    public PaymentWindowViewModel ViewModel => _viewModel;
 
-    public PaymentWindow(int paymentId, int ticketId, string ticketCode, decimal amount, string? paymentUrl, bool isBankTransfer = false)
+    public PaymentWindow(string ticketCode, decimal amount, string transactionNo, string? paymentUrl, bool isBankTransfer, DateTime holdExpiresAtUtc)
+        : this(new[] { ticketCode }, amount, transactionNo, paymentUrl, isBankTransfer, holdExpiresAtUtc)
+    {
+    }
+
+    public PaymentWindow(IReadOnlyList<string> ticketCodes, decimal amount, string transactionNo, string? paymentUrl, bool isBankTransfer, DateTime holdExpiresAtUtc)
     {
         InitializeComponent();
-        _paymentUrl = paymentUrl;
-        IsBankTransfer = isBankTransfer;
-        if (IsBankTransfer)
-        {
-            var qrPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "BankTransferQr.jpg");
-            if (System.IO.File.Exists(qrPath))
-                BankQrImage = new BitmapImage(new Uri(qrPath, UriKind.Absolute));
-        }
-        AmountText = $"{amount:N0} VND";
-        TicketCodeText = IsBankTransfer
-            ? $"Mã vé / nội dung chuyển khoản: {ticketCode}"
-            : $"Mã vé: {ticketCode} | VNPay Sandbox";
-        DataContext = this;
-        if (!IsBankTransfer)
-            Loaded += (_, _) => OpenGateway_Click(this, new RoutedEventArgs());
+        _viewModel = new PaymentWindowViewModel(ticketCodes, amount, transactionNo, paymentUrl, isBankTransfer, holdExpiresAtUtc, Dispatcher);
+        _viewModel.RequestClose += OnRequestClose;
+        DataContext = _viewModel;
     }
 
-    private void OpenGateway_Click(object sender, RoutedEventArgs e)
+    private void OnRequestClose(bool? dialogResult)
     {
-        if (string.IsNullOrWhiteSpace(_paymentUrl)) return;
-        try
-        {
-            Process.Start(new ProcessStartInfo(_paymentUrl) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Không thể mở cổng thanh toán: {ex.Message}", "Thanh toán", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
+        DialogResult = dialogResult;
+        Close();
     }
 
-    private void Close_Click(object sender, RoutedEventArgs e) => Close();
-    private void PaymentWindow_Closed(object? sender, EventArgs e) { }
+    private void PaymentWindow_Closed(object? sender, EventArgs e)
+    {
+        _viewModel.RequestClose -= OnRequestClose;
+        _viewModel.Dispose();
+    }
 }

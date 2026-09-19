@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:BusTicketSaleSystem.ViewModels"
         xmlns:common="clr-namespace:BusTicketSaleSystem.Common"
+        xmlns:views="clr-namespace:BusTicketSaleSystem.Views"
         Title="OmniBus - Executive Administration Portal"
         Height="860" Width="1340"
         MinHeight="720" MinWidth="1100"
@@ -65,7 +66,7 @@
                             <Path Grid.Column="1" Data="{StaticResource IconDashboard}"
                                   Fill="{Binding ActiveTab, Converter={StaticResource AdminNavIconConverter}, ConverterParameter=Dashboard}"
                                   Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                            <TextBlock Grid.Column="2" Text="Dashboard" FontSize="14" FontWeight="SemiBold"
+                            <TextBlock Grid.Column="2" Text="{DynamicResource AdminNavDashboard}" FontSize="14" FontWeight="SemiBold"
                                        Foreground="{Binding ActiveTab, Converter={StaticResource AdminNavFgConverter}, ConverterParameter=Dashboard}"
                                        VerticalAlignment="Center"/>
                         </Grid>
@@ -87,7 +88,7 @@
                             <Path Grid.Column="1" Data="{StaticResource IconRoute}"
                                   Fill="{Binding ActiveTab, Converter={StaticResource AdminNavIconConverter}, ConverterParameter=Routes}"
                                   Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                            <TextBlock Grid.Column="2" Text="Routes" FontSize="14" FontWeight="SemiBold"
+                            <TextBlock Grid.Column="2" Text="{DynamicResource AdminNavRoutes}" FontSize="14" FontWeight="SemiBold"
                                        Foreground="{Binding ActiveTab, Converter={StaticResource AdminNavFgConverter}, ConverterParameter=Routes}"
                                        VerticalAlignment="Center"/>
                         </Grid>
@@ -109,7 +110,7 @@
                             <Path Grid.Column="1" Data="{StaticResource IconBus}"
                                   Fill="{Binding ActiveTab, Converter={StaticResource AdminNavIconConverter}, ConverterParameter=Buses}"
                                   Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                            <TextBlock Grid.Column="2" Text="Bus Fleet" FontSize="14" FontWeight="SemiBold"
+                            <TextBlock Grid.Column="2" Text="{DynamicResource AdminNavBuses}" FontSize="14" FontWeight="SemiBold"
                                        Foreground="{Binding ActiveTab, Converter={StaticResource AdminNavFgConverter}, ConverterParameter=Buses}"
                                        VerticalAlignment="Center"/>
                         </Grid>
@@ -131,8 +132,52 @@
                             <Path Grid.Column="1" Data="{StaticResource IconClock}"
                                   Fill="{Binding ActiveTab, Converter={StaticResource AdminNavIconConverter}, ConverterParameter=Trips}"
                                   Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                            <TextBlock Grid.Column="2" Text="Trip Schedules" FontSize="14" FontWeight="SemiBold"
+                            <TextBlock Grid.Column="2" Text="{DynamicResource AdminNavTrips}" FontSize="14" FontWeight="SemiBold"
                                        Foreground="{Binding ActiveTab, Converter={StaticResource AdminNavFgConverter}, ConverterParameter=Trips}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
+
+                    <!-- Payments & Settlement -->
+                    <Button Command="{Binding PaymentsCommand}"
+                            Style="{StaticResource SidebarButtonStyle}"
+                            Background="{Binding ActiveTab, Converter={StaticResource AdminNavBgConverter}, ConverterParameter=Payments}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="3" Height="18" CornerRadius="1.5"
+                                    Background="{Binding ActiveTab, Converter={StaticResource AdminNavIndicatorConverter}, ConverterParameter=Payments}"
+                                    HorizontalAlignment="Left"/>
+                            <Path Grid.Column="1" Data="{StaticResource IconTicket}"
+                                  Fill="{Binding ActiveTab, Converter={StaticResource AdminNavIconConverter}, ConverterParameter=Payments}"
+                                  Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                            <TextBlock Grid.Column="2" Text="{DynamicResource AdminNavPayments}" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{Binding ActiveTab, Converter={StaticResource AdminNavFgConverter}, ConverterParameter=Payments}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
+
+                    <!-- Revenue Reports -->
+                    <Button Command="{Binding ReportsCommand}"
+                            Style="{StaticResource SidebarButtonStyle}"
+                            Background="{Binding ActiveTab, Converter={StaticResource AdminNavBgConverter}, ConverterParameter=Reports}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="3" Height="18" CornerRadius="1.5"
+                                    Background="{Binding ActiveTab, Converter={StaticResource AdminNavIndicatorConverter}, ConverterParameter=Reports}"
+                                    HorizontalAlignment="Left"/>
+                            <Path Grid.Column="1" Data="{StaticResource IconChart}"
+                                  Fill="{Binding ActiveTab, Converter={StaticResource AdminNavIconConverter}, ConverterParameter=Reports}"
+                                  Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                            <TextBlock Grid.Column="2" Text="{DynamicResource AdminNavReports}" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{Binding ActiveTab, Converter={StaticResource AdminNavFgConverter}, ConverterParameter=Reports}"
                                        VerticalAlignment="Center"/>
                         </Grid>
                     </Button>
@@ -153,7 +198,7 @@
                             <Path Grid.Column="1" Data="{StaticResource IconUser}"
                                   Fill="{Binding ActiveTab, Converter={StaticResource AdminNavIconConverter}, ConverterParameter=Accounts}"
                                   Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                            <TextBlock Grid.Column="2" Text="User Accounts" FontSize="14" FontWeight="SemiBold"
+                            <TextBlock Grid.Column="2" Text="{DynamicResource AdminNavAccounts}" FontSize="14" FontWeight="SemiBold"
                                        Foreground="{Binding ActiveTab, Converter={StaticResource AdminNavFgConverter}, ConverterParameter=Accounts}"
                                        VerticalAlignment="Center"/>
                         </Grid>
@@ -180,15 +225,17 @@
                             </Grid>
                         </Border>
 
-                        <!-- Sign Out Button -->
-                        <Button Command="{Binding LogoutCommand}" Style="{StaticResource SidebarButtonStyle}">
+                        <Button Command="{Binding LogoutCommand}"
+                                Style="{StaticResource GhostButtonStyle}"
+                                ToolTip="Đăng xuất khỏi trang quản trị"
+                                AutomationProperties.Name="Đăng xuất">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="28"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Path Grid.Column="0" Data="{StaticResource IconLogout}" Fill="#EF4444" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                                <TextBlock Grid.Column="1" Text="Sign Out" FontSize="13" FontWeight="SemiBold" Foreground="#FCA5A5" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{DynamicResource AdminNavLogout}" FontSize="13" FontWeight="SemiBold" Foreground="#FCA5A5" VerticalAlignment="Center"/>
                             </Grid>
                         </Button>
                     </StackPanel>
@@ -220,10 +267,38 @@
 
                     <!-- Right Status Indicator -->
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Language Switcher Button -->
+                        <Button Command="{Binding ToggleLanguageCommand}"
+                                Style="{StaticResource GhostButtonStyle}"
+                                ToolTip="{DynamicResource LanguageSwitchPrompt}"
+                                AutomationProperties.Name="Đổi ngôn ngữ / Switch Language"
+                                Margin="0,0,12,0" Padding="0">
+                            <Border Background="{StaticResource SurfaceMutedBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="14"
+                                    Padding="8,4">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="🌐 " FontSize="11" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding CurrentLanguageCode}" FontWeight="Bold" FontSize="11.5"
+                                               Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </Button>
+
+                        <!-- Fixed Station Scope Badge -->
+                        <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" CornerRadius="12" Padding="10,4" Margin="0,0,10,0"
+                                ToolTip="Phạm vi quản lý cố định theo vị trí máy trạm của tài khoản Admin này">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding StationScopeDisplay}" Foreground="#1D4ED8" FontWeight="Bold" FontSize="11"/>
+                                <TextBlock Text=" (Cố định)" Foreground="#60A5FA" FontSize="10" Margin="2,0,0,0"/>
+                            </StackPanel>
+                        </Border>
+
                         <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="12" Padding="10,4" Margin="0,0,14,0">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="●" Foreground="{StaticResource SuccessBrush}" FontSize="9" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <TextBlock Text="Admin Mode" Foreground="#065F46" FontWeight="Bold" FontSize="11"/>
+                                <TextBlock Text="{DynamicResource AdminMode}" Foreground="#065F46" FontWeight="Bold" FontSize="11"/>
                             </StackPanel>
                         </Border>
 
@@ -238,10 +313,13 @@
                 </Grid>
             </Border>
 
-            <!-- View Scroll Container -->
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <ContentControl Content="{Binding CurrentViewModel}" Margin="28,24"/>
-            </ScrollViewer>
+            <!-- View Scroll Container. Grid so the toast floats above the page content. -->
+            <Grid Grid.Row="1">
+                <ScrollViewer x:Name="ContentScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ContentControl Content="{Binding CurrentViewModel}" Margin="28,24"/>
+                </ScrollViewer>
+                <views:NotificationHost/>
+            </Grid>
         </Grid>
     </Grid>
 </Window>

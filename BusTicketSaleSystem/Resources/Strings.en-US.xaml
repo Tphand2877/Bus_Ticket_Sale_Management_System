@@ -1,0 +1,157 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- App & General -->
+    <sys:String x:Key="AppTitle">OmniBus Express - Bus Ticket Sale &amp; Management System</sys:String>
+    <sys:String x:Key="Portal">Portal</sys:String>
+    <sys:String x:Key="QuickBookButton">+ Book a Trip</sys:String>
+    <sys:String x:Key="Refresh">Refresh</sys:String>
+    <sys:String x:Key="Back">Back</sys:String>
+    <sys:String x:Key="Save">Save Changes</sys:String>
+    <sys:String x:Key="Cancel">Cancel</sys:String>
+    <sys:String x:Key="Delete">Delete</sys:String>
+    <sys:String x:Key="Edit">Edit</sys:String>
+    <sys:String x:Key="Confirm">Confirm</sys:String>
+    <sys:String x:Key="Close">Close</sys:String>
+    <sys:String x:Key="Search">Search</sys:String>
+    <sys:String x:Key="All">All</sys:String>
+    <sys:String x:Key="Date">Date</sys:String>
+    <sys:String x:Key="Status">Status</sys:String>
+    <sys:String x:Key="Price">Price</sys:String>
+
+    <!-- Language Info -->
+    <sys:String x:Key="Language">Language</sys:String>
+    <sys:String x:Key="LanguageVi">Tiếng Việt</sys:String>
+    <sys:String x:Key="LanguageEn">English</sys:String>
+    <sys:String x:Key="LanguageSwitchPrompt">Switch Language</sys:String>
+    <sys:String x:Key="LanguageSettingsTitle">Display Language Settings</sys:String>
+    <sys:String x:Key="LanguageSettingsDesc">Choose the display language for the entire system interface (Vietnamese or English).</sys:String>
+    <sys:String x:Key="LanguageCurrent">Current language: English</sys:String>
+
+    <!-- User Navigation Menu -->
+    <sys:String x:Key="MenuMain">MAIN MENU</sys:String>
+    <sys:String x:Key="NavOverview">Overview</sys:String>
+    <sys:String x:Key="NavBooking">Book a Ticket</sys:String>
+    <sys:String x:Key="NavMyTickets">My Tickets</sys:String>
+    <sys:String x:Key="NavHistory">Travel History</sys:String>
+    <sys:String x:Key="NavProfile">Profile &amp; Settings</sys:String>
+    <sys:String x:Key="NavLogout">Sign Out</sys:String>
+    <sys:String x:Key="NavLogoutTooltip">Sign out of your account</sys:String>
+
+    <!-- Admin Navigation Menu -->
+    <sys:String x:Key="AdminNavDashboard">Dashboard</sys:String>
+    <sys:String x:Key="AdminNavRoutes">Routes</sys:String>
+    <sys:String x:Key="AdminNavBuses">Bus Fleet</sys:String>
+    <sys:String x:Key="AdminNavTrips">Trip Schedules</sys:String>
+    <sys:String x:Key="AdminNavPayments">Payments</sys:String>
+    <sys:String x:Key="AdminNavReports">Revenue Reports</sys:String>
+    <sys:String x:Key="AdminNavAccounts">User Accounts</sys:String>
+    <sys:String x:Key="AdminNavLogout">Sign Out</sys:String>
+    <sys:String x:Key="AdminMode">Admin Mode</sys:String>
+    <sys:String x:Key="AdminRole">Administrator</sys:String>
+
+    <!-- Auth / Login -->
+    <sys:String x:Key="LoginTitle">Sign In</sys:String>
+    <sys:String x:Key="LoginSubtitle">Enter your account credentials to continue</sys:String>
+    <sys:String x:Key="LoginUsername">Username or Email</sys:String>
+    <sys:String x:Key="LoginPassword">Password</sys:String>
+    <sys:String x:Key="LoginButton">Sign In to Account</sys:String>
+    <sys:String x:Key="LoginDivider">OR</sys:String>
+    <sys:String x:Key="LoginCreateAccount">Create New Account</sys:String>
+    <sys:String x:Key="LoginHeroTitle">Your journey starts here.</sys:String>
+    <sys:String x:Key="LoginHeroSubtitle">Fast, comfortable, and reliable intercity travel booking.</sys:String>
+    <sys:String x:Key="LoginFeature1">Live interactive seat selection</sys:String>
+    <sys:String x:Key="LoginFeature2">Instant digital e-boarding pass</sys:String>
+    <sys:String x:Key="LoginFeature3">Verified schedules &amp; fixed pricing</sys:String>
+    <sys:String x:Key="LoginSecurityBadge">Secure 256-bit encrypted authentication</sys:String>
+
+    <!-- Home Screen -->
+    <sys:String x:Key="HomeWelcome">Welcome back, </sys:String>
+    <sys:String x:Key="HomeWelcomeSubtitle">Search scheduled routes, choose your preferred seat, and view your bookings.</sys:String>
+    <sys:String x:Key="HomeViewTickets">View My Tickets</sys:String>
+    <sys:String x:Key="HomeSearchTitle">Find &amp; Book Your Bus Trip</sys:String>
+    <sys:String x:Key="HomeSearchSubtitle">Compare express routes across northern and central intercity lines</sys:String>
+    <sys:String x:Key="HomeOrigin">Origin (From)</sys:String>
+    <sys:String x:Key="HomeDestination">Destination (To)</sys:String>
+    <sys:String x:Key="HomeDepartureDate">Departure Date</sys:String>
+    <sys:String x:Key="HomePassengers">Passengers</sys:String>
+    <sys:String x:Key="HomeSearchButton">Search Trips</sys:String>
+    <sys:String x:Key="HomeSwapTooltip">Swap locations</sys:String>
+    <sys:String x:Key="HomePopularRoutes">Popular Express Routes</sys:String>
+    <sys:String x:Key="HomePopularSubtitle">Fastest direct journeys between major transit hubs</sys:String>
+    <sys:String x:Key="HomeExploreAll">Explore All Schedules</sys:String>
+    <sys:String x:Key="HomePriceFrom">Fares from</sys:String>
+    <sys:String x:Key="HomeBookNow">Book</sys:String>
+    <sys:String x:Key="HomeNoTripsTitle">No scheduled routes yet</sys:String>
+    <sys:String x:Key="HomeNoTripsDesc">Route schedules will appear here as soon as departures are published.</sys:String>
+
+    <!-- Booking Screen -->
+    <sys:String x:Key="BookingTitle">Book a Bus Trip</sys:String>
+    <sys:String x:Key="BookingSubtitle">Search scheduled departures and pick the best route for your journey.</sys:String>
+    <sys:String x:Key="BookingBack">← Back to Overview</sys:String>
+    <sys:String x:Key="BookingMinPriceLabel">Lowest fare</sys:String>
+    <sys:String x:Key="BookingSelectCompany">Select Operator →</sys:String>
+    <sys:String x:Key="BookingNoCompaniesTitle">No bus companies match your search</sys:String>
+    <sys:String x:Key="BookingNoCompaniesDesc">No operators found for the selected route or date. Try viewing all active operators.</sys:String>
+    <sys:String x:Key="BookingShowAll">View all operators</sys:String>
+
+    <!-- My Tickets Screen -->
+    <sys:String x:Key="MyTicketsTitle">My Tickets</sys:String>
+    <sys:String x:Key="MyTicketsSubtitle">Manage and review your active bus journey tickets.</sys:String>
+    <sys:String x:Key="MyTicketsBookNew">+ Book Ticket</sys:String>
+    <sys:String x:Key="MyTicketsViewEticket">View E-Ticket</sys:String>
+    <sys:String x:Key="MyTicketsPending">Pending</sys:String>
+    <sys:String x:Key="MyTicketsCancel">Cancel Reservation</sys:String>
+    <sys:String x:Key="MyTicketsCancelTooltip">Available while the ticket is reserved and unpaid.</sys:String>
+    <sys:String x:Key="MyTicketsRefund">Request Refund</sys:String>
+    <sys:String x:Key="MyTicketsRefundTooltip">Available for paid tickets before departure. Our staff settles the refund.</sys:String>
+    <sys:String x:Key="MyTicketsNoTicketsTitle">No active tickets</sys:String>
+    <sys:String x:Key="MyTicketsNoTicketsDesc">You have no upcoming journeys. Book a ticket to get started.</sys:String>
+    <sys:String x:Key="MyTicketsBookNow">Book a ticket</sys:String>
+
+    <!-- History Screen -->
+    <sys:String x:Key="HistoryTitle">Travel History</sys:String>
+    <sys:String x:Key="HistorySubtitle">Review past journeys and re-book favorite routes.</sys:String>
+    <sys:String x:Key="HistoryNoHistoryTitle">No travel history yet</sys:String>
+    <sys:String x:Key="HistoryNoHistoryDesc">Completed and cancelled journeys will appear here.</sys:String>
+    <sys:String x:Key="HistoryFindTrip">Find a new trip</sys:String>
+
+    <!-- Profile Screen -->
+    <sys:String x:Key="ProfileTitle">Profile &amp; Security</sys:String>
+    <sys:String x:Key="ProfileSubtitle">Manage your password, security settings, and personal information.</sys:String>
+    <sys:String x:Key="ProfilePasswordTitle">Password &amp; Security</sys:String>
+    <sys:String x:Key="ProfilePasswordSubtitle">Change your password regularly to keep your account secure.</sys:String>
+    <sys:String x:Key="ProfileCurrentPassword">Current password</sys:String>
+    <sys:String x:Key="ProfileNewPassword">New password</sys:String>
+    <sys:String x:Key="ProfileConfirmPassword">Confirm new password</sys:String>
+
+    <!-- Destructive-action confirmation gate ({0} placeholders filled in the ViewModel) -->
+    <sys:String x:Key="ConfirmCancelPrompt">Cancel ticket {0} and release seat(s) {1}? The seats go back on sale immediately and this cannot be undone.</sys:String>
+    <sys:String x:Key="ConfirmRefundPrompt">Request a refund for ticket {0} ({1})? The ticket stops being valid for travel and our staff settles the refund manually.</sys:String>
+    <sys:String x:Key="ConfirmCancelAction">Yes, cancel the ticket</sys:String>
+    <sys:String x:Key="ConfirmRefundAction">Yes, request the refund</sys:String>
+    <sys:String x:Key="ConfirmKeepTicket">Keep the ticket</sys:String>
+    <sys:String x:Key="ConfirmGeneric">Confirm</sys:String>
+
+    <!-- Transient outcome messages -->
+    <sys:String x:Key="ToastTicketCancelled">Ticket {0} was cancelled and moved to your travel history.</sys:String>
+    <sys:String x:Key="ToastRefundRequested">Refund requested for ticket {0}. Our staff will review and settle it shortly.</sys:String>
+    <sys:String x:Key="ToastProfileUpdated">Your profile was updated.</sys:String>
+    <sys:String x:Key="ToastPasswordChanged">Your password was changed.</sys:String>
+    <sys:String x:Key="ToastCashReserved">Seat(s) {0} are reserved. Pay the driver in cash when you board; the booking stays pending until an operator confirms it.</sys:String>
+    <sys:String x:Key="ToastTransferSubmitted">Transfer submitted for ticket {0}. An operator will verify the payment; the reservation stays pending until {1}.</sys:String>
+    <sys:String x:Key="ToastTransferNotSubmitted">No transfer was submitted. Payment for ticket {0} remains pending until {1}.</sys:String>
+    <sys:String x:Key="ToastVnPayConfirmed">VNPay confirmed the payment for ticket {0}.</sys:String>
+    <sys:String x:Key="ToastVnPayPending">VNPay has not confirmed the payment for ticket {0}. The reservation stays pending until {1}.</sys:String>
+    <sys:String x:Key="ToastBookingFailed">The booking could not be completed. Please try again.</sys:String>
+    <sys:String x:Key="ToastDismiss">Dismiss notification</sys:String>
+    <sys:String x:Key="ProfileChangePasswordButton">Change Password</sys:String>
+    <sys:String x:Key="ProfilePersonalInfoTitle">Personal Information</sys:String>
+    <sys:String x:Key="ProfilePersonalInfoSubtitle">Update the personal information associated with your account.</sys:String>
+    <sys:String x:Key="ProfileFullName">Full name</sys:String>
+    <sys:String x:Key="ProfilePhoneNumber">Phone number</sys:String>
+    <sys:String x:Key="ProfileEmail">Email address</sys:String>
+    <sys:String x:Key="ProfileSavePersonalButton">Save Personal Information</sys:String>
+
+</ResourceDictionary>

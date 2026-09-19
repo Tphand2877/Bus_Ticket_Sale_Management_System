@@ -1,6 +1,7 @@
 using BusTicketSaleSystem.Common;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace BusTicketSaleSystem.Services
 {
@@ -8,11 +9,18 @@ namespace BusTicketSaleSystem.Services
     /// Implements ViewModel-first navigation.
     /// Manages CurrentViewModel and notifies subscribers via INotifyPropertyChanged.
     /// </summary>
+    /// <remarks>
+    /// Only ViewModels explicitly handed over through <see cref="Register{TViewModel}"/> are kept
+    /// as singletons (shell-owned state). Everything else is constructed fresh on every
+    /// <see cref="NavigateTo{TViewModel}"/> so a screen never shows data captured at first
+    /// construction. ViewModels implementing <see cref="IRefreshable"/> get
+    /// <see cref="IRefreshable.RefreshAsync"/> invoked right after they become current.
+    /// </remarks>
     public class NavigationService : ViewModelBase, INavigationService
     {
         private ViewModelBase? _currentViewModel;
         private Func<Type, ViewModelBase>? _viewModelFactory;
-        private readonly Dictionary<Type, ViewModelBase> _cache = new();
+        private readonly Dictionary<Type, ViewModelBase> _singletons = new();
 
         public ViewModelBase? CurrentViewModel
         {
@@ -29,39 +37,33 @@ namespace BusTicketSaleSystem.Services
         }
 
         /// <summary>
-        /// Registers an existing ViewModel instance.
+        /// Registers a long-lived ViewModel instance that must survive navigation.
         /// </summary>
         public void Register<TViewModel>(TViewModel viewModel) where TViewModel : ViewModelBase
         {
             if (viewModel == null) throw new ArgumentNullException(nameof(viewModel));
-            _cache[typeof(TViewModel)] = viewModel;
+            _singletons[typeof(TViewModel)] = viewModel;
         }
 
         /// <summary>
-        /// Navigates to the specified ViewModel type. Reuses existing instance if cached.
+        /// Navigates to the specified ViewModel type, creating a new instance unless the
+        /// type was explicitly registered as a singleton.
         /// </summary>
         public void NavigateTo<TViewModel>() where TViewModel : ViewModelBase
         {
             var type = typeof(TViewModel);
 
-            if (_cache.TryGetValue(type, out var cached))
+            if (_singletons.TryGetValue(type, out var registered))
             {
-                CurrentViewModel = cached;
+                Activate(registered);
                 return;
             }
 
-            if (_viewModelFactory != null)
-            {
-                var created = _viewModelFactory(type);
-                _cache[type] = created;
-                CurrentViewModel = created;
-                return;
-            }
+            var instance = _viewModelFactory != null
+                ? _viewModelFactory(type)
+                : (ViewModelBase)Activator.CreateInstance(type)!;
 
-            // Fallback: parameterless activation
-            var instance = (ViewModelBase)Activator.CreateInstance(type)!;
-            _cache[type] = instance;
-            CurrentViewModel = instance;
+            Activate(instance);
         }
 
         /// <summary>
@@ -70,8 +72,29 @@ namespace BusTicketSaleSystem.Services
         public void NavigateTo(ViewModelBase viewModel)
         {
             if (viewModel == null) throw new ArgumentNullException(nameof(viewModel));
-            _cache[viewModel.GetType()] = viewModel;
+            Activate(viewModel);
+        }
+
+        private void Activate(ViewModelBase viewModel)
+        {
             CurrentViewModel = viewModel;
+
+            if (viewModel is IRefreshable refreshable)
+            {
+                _ = RefreshSafelyAsync(refreshable);
+            }
+        }
+
+        private static async Task RefreshSafelyAsync(IRefreshable refreshable)
+        {
+            try
+            {
+                await refreshable.RefreshAsync();
+            }
+            catch (Exception ex)
+            {
+                LoggerService.LogError($"Refreshing {refreshable.GetType().Name} after navigation failed.", ex);
+            }
         }
     }
 }

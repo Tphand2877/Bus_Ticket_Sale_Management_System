@@ -33,14 +33,22 @@ public static class AppConfig
     public static string VnPayHashSecret =>
         Environment.GetEnvironmentVariable("VNPAY_HASH_SECRET") ?? string.Empty;
 
+    /// <summary>Loopback port the in-process VNPay return listener binds to.</summary>
+    public static int VnPayCallbackPort =>
+        int.TryParse(Environment.GetEnvironmentVariable("VNPAY_CALLBACK_PORT"), out var port) && port is > 0 and <= 65535
+            ? port
+            : 5058;
+
+    public static string VnPayCallbackPrefix => $"http://127.0.0.1:{VnPayCallbackPort}/vnpay-return/";
+
     public static string VnPayReturnUrl =>
-        Environment.GetEnvironmentVariable("VNPAY_RETURN_URL") ?? "https://localhost:5001/api/payments/return";
+        Environment.GetEnvironmentVariable("VNPAY_RETURN_URL") ?? VnPayCallbackPrefix;
+
     public static string BrevoApiKey =>
         Environment.GetEnvironmentVariable("BREVO_API_KEY") ?? string.Empty;
 
     public static string EmailSenderName =>
-        Environment.GetEnvironmentVariable("EMAIL_SENDER_NAME") ?? "Bus Ticket Sale System";
-
+        Environment.GetEnvironmentVariable("EMAIL_SENDER_NAME") ?? "OmniBus Việt Nam";
     public static string EmailSenderAddress =>
         Environment.GetEnvironmentVariable("EMAIL_SENDER_ADDRESS") ?? string.Empty;
 }

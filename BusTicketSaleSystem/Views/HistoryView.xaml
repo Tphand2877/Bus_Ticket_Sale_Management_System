@@ -6,11 +6,9 @@
              xmlns:vm="clr-namespace:BusTicketSaleSystem.ViewModels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:HistoryViewModel}"
+             xmlns:common="clr-namespace:BusTicketSaleSystem.Common"
              FontFamily="{StaticResource AppFont}">
 
-    <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-    </UserControl.Resources>
 
     <StackPanel>
         <!-- Page Header & Summary -->
@@ -21,11 +19,11 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Travel History 🕘"
+                <TextBlock Text="Lịch sử chuyến đi"
                            FontSize="26"
                            FontWeight="Bold"
                            Foreground="{StaticResource TextPrimaryBrush}"/>
-                <TextBlock Text="Review past journeys, ratings, and re-book favorite routes."
+                <TextBlock Text="Xem lại các chuyến đi trước đây và dễ dàng đặt lại các tuyến quen thuộc."
                            FontSize="14"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            Margin="0,4,0,0"/>
@@ -50,8 +48,29 @@
                                FontSize="13"
                                Foreground="{StaticResource SuccessBrush}"/>
                 </Border>
+                <Button Content="Làm mới"
+                        Command="{Binding RefreshCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Padding="14,8"
+                        Margin="10,0,0,0"/>
             </StackPanel>
         </Grid>
+
+        <ProgressBar Height="4"
+                     Margin="0,0,0,12"
+                     IsIndeterminate="True"
+                     Style="{StaticResource ModernProgressBarStyle}"
+                     Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+        <Border Background="{StaticResource DangerLightBrush}"
+                BorderBrush="{StaticResource DangerBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="14,10"
+                Margin="0,0,0,16"
+                Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibilityConverter}}">
+            <TextBlock Text="{Binding ErrorMessage}" FontSize="13" Foreground="{StaticResource DangerBrush}" FontWeight="Medium" TextWrapping="Wrap"/>
+        </Border>
 
         <!-- Past Trips Table / Card -->
         <Border Style="{StaticResource CardStyle}" Padding="0">
@@ -70,15 +89,22 @@
 
                     <TextBlock Grid.Column="0" Text="DATE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="20,0,0,0"/>
                     <TextBlock Grid.Column="1" Text="ROUTE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                    <TextBlock Grid.Column="2" Text="BUS OPERATOR" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    <TextBlock Grid.Column="2" Text="COACH" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     <TextBlock Grid.Column="3" Text="SEAT" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     <TextBlock Grid.Column="4" Text="FARE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                    <TextBlock Grid.Column="5" Text="RATING" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    <TextBlock Grid.Column="5" Text="STATUS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     <TextBlock Grid.Column="6" Text="ACTION" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="10,0,20,0" HorizontalAlignment="Right"/>
                 </Grid>
 
                 <!-- Table Rows -->
-                <ItemsControl ItemsSource="{Binding HistoryTrips}">
+                <ItemsControl ItemsSource="{Binding HistoryTrips}"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,14">
@@ -102,17 +128,17 @@
                                     <!-- Route -->
                                     <TextBlock Grid.Column="1" Text="{Binding Route}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
 
-                                    <!-- Bus Operator -->
-                                    <TextBlock Grid.Column="2" Text="{Binding BusOperator}" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                    <!-- Coach -->
+                                    <TextBlock Grid.Column="2" Text="{Binding BusType}" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
 
-                                    <!-- Seat -->
-                                    <TextBlock Grid.Column="3" Text="{Binding Seat}" FontSize="13" FontWeight="Medium" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                    <!-- Seats -->
+                                    <TextBlock Grid.Column="3" Text="{Binding Seats}" FontSize="13" FontWeight="Medium" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0" TextTrimming="CharacterEllipsis"/>
 
                                     <!-- Fare -->
                                     <TextBlock Grid.Column="4" Text="{Binding Fare}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
 
-                                    <!-- Rating -->
-                                    <TextBlock Grid.Column="5" Text="{Binding Rating}" FontSize="12" Foreground="#F59E0B" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                    <!-- Ticket status (DB literal rendered in English) -->
+                                    <TextBlock Grid.Column="5" Text="{Binding Status, Converter={StaticResource TicketStatusToDisplay}}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
 
                                     <!-- Action: Book Again -->
                                     <Button Grid.Column="6"
@@ -143,12 +169,12 @@
                                    FontWeight="Bold"
                                    HorizontalAlignment="Center"
                                    Foreground="{StaticResource TextPrimaryBrush}"/>
-                        <TextBlock Text="Các chuyến đi đã hoàn tất hoặc đã hủy sẽ hiển thị tại đây."
+                        <TextBlock Text="Các chuyến đi đã hoàn thành hoặc đã hủy sẽ được ghi nhận tại đây."
                                    FontSize="13"
                                    Foreground="{StaticResource TextMutedBrush}"
                                    HorizontalAlignment="Center"
                                    Margin="0,4,0,16"/>
-                        <Button Content="Tìm chuyến đi mới"
+                        <Button Content="Tìm chuyến xe mới"
                                 Command="{Binding BookAgainCommand}"
                                 Style="{StaticResource PrimaryButtonStyle}"
                                 HorizontalAlignment="Center"

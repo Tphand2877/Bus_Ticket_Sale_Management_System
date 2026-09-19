@@ -2,9 +2,8 @@ using System.Windows.Controls;
 
 namespace BusTicketSaleSystem.Views
 {
-    // TODO: teammate will replace this with real logic
     /// <summary>
-    /// Interaction logic for TicketView.xaml placeholder
+    /// View for displaying and managing a booked ticket.
     /// </summary>
     public partial class TicketView : UserControl
     {

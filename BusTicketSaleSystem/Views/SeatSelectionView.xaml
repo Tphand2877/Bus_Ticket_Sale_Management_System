@@ -2,14 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:common="clr-namespace:BusTicketSaleSystem.Common"
+             Unloaded="SeatSelectionView_OnUnloaded"
              FontFamily="{StaticResource AppFont}">
 
-    <UserControl.Resources>
-        <common:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-        <common:BooleanToVisibilityInvertedConverter x:Key="BooleanToVisibilityInvertedConverter"/>
-        <common:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
-    </UserControl.Resources>
 
     <StackPanel>
         <!-- Top Journey Navigation & Steps Indicator -->
@@ -39,19 +34,24 @@
 
                 <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                     <Path Data="{StaticResource IconCalendar}" Fill="{StaticResource TextMutedBrush}" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                    <TextBlock Text="{Binding Trip.Schedule}" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding TripScheduleDisplay}" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"/>
                     <TextBlock Text=" • " FontSize="13" Foreground="{StaticResource TextMutedBrush}"/>
-                    <TextBlock Text="{Binding Trip.PriceDisplay, StringFormat='Giá vé: {0}'}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
+                    <TextBlock Text="{Binding PriceDisplay, StringFormat='Fare: {0}'}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
                 </StackPanel>
             </StackPanel>
 
-            <!-- Back Button -->
-            <Button Grid.Column="1"
-                    Content="← Chọn chuyến khác"
-                    Command="{Binding BackToBookingCommand}"
-                    Style="{StaticResource SecondaryButtonStyle}"
-                    VerticalAlignment="Center"
-                    Padding="16,8"/>
+            <!-- Navigation Buttons -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Refresh seat map"
+                        Command="{Binding RefreshCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Padding="16,8"
+                        Margin="0,0,10,0"/>
+                <Button Content="← Choose another trip"
+                        Command="{Binding BackToBookingCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Padding="16,8"/>
+            </StackPanel>
         </Grid>
 
         <!-- Status Message Banner -->
@@ -62,7 +62,7 @@
                 Padding="14,10"
                 Margin="0,0,0,20"
                 Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibilityConverter}}">
-            <TextBlock Text="{Binding StatusMessage}" FontSize="13" Foreground="{StaticResource PrimaryBrush}" FontWeight="Medium"/>
+            <TextBlock Text="{Binding StatusMessage}" FontSize="13" Foreground="{StaticResource PrimaryBrush}" FontWeight="Medium" TextWrapping="Wrap"/>
         </Border>
 
         <!-- Main Layout: 2 Columns (Bus Cabin Floorplan + Passenger & Summary) -->
@@ -89,20 +89,27 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="Sơ đồ ghế trên xe" FontSize="17" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                            <TextBlock Text="Nhấn vào ghế bạn muốn chọn (màu xanh là ghế đang chọn)" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0"/>
+                            <TextBlock Text="Seat map" FontSize="17" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Select one or more seats. The map reloads automatically every 20 seconds."
+                                       FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
 
                         <!-- Seat Counters Pill -->
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                             <Border Background="{StaticResource SuccessLightBrush}" CornerRadius="6" Padding="8,4" Margin="0,0,8,0">
-                                <TextBlock Text="{Binding AvailableSeatsCount, StringFormat='{}Trống: {0}'}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource SuccessBrush}"/>
+                                <TextBlock Text="{Binding AvailableSeatsCount, StringFormat='{}Free: {0}'}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource SuccessBrush}"/>
                             </Border>
                             <Border Background="{StaticResource SurfaceMutedBrush}" CornerRadius="6" Padding="8,4">
-                                <TextBlock Text="{Binding BookedSeatsCount, StringFormat='{}Đã đặt: {0}'}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding BookedSeatsCount, StringFormat='{}Booked: {0}'}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}"/>
                             </Border>
                         </StackPanel>
                     </Grid>
+
+                    <ProgressBar Height="4"
+                                 Margin="0,0,0,12"
+                                 IsIndeterminate="True"
+                                 Style="{StaticResource ModernProgressBarStyle}"
+                                 Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
                     <!-- Seating Legend Strip -->
                     <Border Background="{StaticResource BackgroundBrush}" CornerRadius="10" Padding="14,10" Margin="0,0,0,20">
@@ -116,7 +123,7 @@
                             <!-- Available -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
                                 <Border Width="20" Height="20" CornerRadius="5" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1.5" Margin="0,0,8,0"/>
-                                <TextBlock Text="Ghế trống" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Text="Available" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                             </StackPanel>
 
                             <!-- Selected -->
@@ -124,13 +131,13 @@
                                 <Border Width="20" Height="20" CornerRadius="5" Background="{StaticResource PrimaryBrush}" Margin="0,0,8,0">
                                     <Path Data="{StaticResource IconCheck}" Fill="White" Width="10" Height="10" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Text="Đang chọn" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Text="Selected" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center"/>
                             </StackPanel>
 
                             <!-- Booked -->
                             <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
                                 <Border Width="20" Height="20" CornerRadius="5" Background="#CBD5E1" Margin="0,0,8,0"/>
-                                <TextBlock Text="Đã được đặt" FontSize="12" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Text="Already booked" FontSize="12" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -153,19 +160,17 @@
 
                                 <!-- Entrance Door Indicator -->
                                 <Border Grid.Column="0" Background="#E2E8F0" CornerRadius="6" HorizontalAlignment="Left" Padding="10,4" VerticalAlignment="Center">
-                                    <TextBlock Text="Cửa lên/xuống" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Door" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
                                 </Border>
 
                                 <!-- Front Windshield Curve -->
                                 <Border Grid.Column="1" Background="#E0E7FF" CornerRadius="10" Padding="16,5" VerticalAlignment="Center">
-                                    <TextBlock Text="ĐẦU XE (Front)" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
+                                    <TextBlock Text="FRONT" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
                                 </Border>
 
                                 <!-- Driver Area -->
                                 <Border Grid.Column="2" Background="#FEF3C7" CornerRadius="6" HorizontalAlignment="Right" Padding="10,4" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Vô lăng tài xế" FontSize="11" FontWeight="SemiBold" Foreground="#92400E"/>
-                                    </StackPanel>
+                                    <TextBlock Text="Driver" FontSize="11" FontWeight="SemiBold" Foreground="#92400E"/>
                                 </Border>
                             </Grid>
 
@@ -173,7 +178,7 @@
 
                             <!-- Interactive Seats Grid -->
                             <ListBox ItemsSource="{Binding Seats}"
-                                     SelectedItem="{Binding SelectedSeat}"
+                                     SelectionMode="Multiple"
                                      Background="Transparent"
                                      BorderThickness="0"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -189,6 +194,7 @@
                                         <Setter Property="Margin" Value="4"/>
                                         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
                                         <Setter Property="IsEnabled" Value="{Binding IsBooked, Converter={StaticResource InverseBooleanConverter}}"/>
+                                        <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
                                         <Setter Property="Template">
                                             <Setter.Value>
                                                 <ControlTemplate TargetType="ListBoxItem">
@@ -218,7 +224,7 @@
                                                             <!-- Seat Number / Label -->
                                                             <TextBlock x:Name="seatNum"
                                                                        Grid.Row="1"
-                                                                       Text="{Binding SeatNumber, StringFormat='Ghế {0}'}"
+                                                                       Text="{Binding SeatNumber, StringFormat='Seat {0}'}"
                                                                        FontSize="11"
                                                                        FontWeight="Bold"
                                                                        HorizontalAlignment="Center"
@@ -248,7 +254,7 @@
                                                             <Setter TargetName="seatBorder" Property="Cursor" Value="No"/>
                                                             <Setter TargetName="seatIcon" Property="Fill" Value="#94A3B8"/>
                                                             <Setter TargetName="seatNum" Property="Foreground" Value="#94A3B8"/>
-                                                            <Setter TargetName="seatNum" Property="Text" Value="{Binding SeatNumber, StringFormat='{}{0} (Đã đặt)'}"/>
+                                                            <Setter TargetName="seatNum" Property="Text" Value="{Binding SeatNumber, StringFormat='{}{0} (booked)'}"/>
                                                         </DataTrigger>
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>
@@ -258,9 +264,17 @@
                                 </ListBox.ItemContainerStyle>
                             </ListBox>
 
+                            <!-- Empty state when the bus has no seat rows configured -->
+                            <TextBlock Text="No seat map is configured for this coach yet."
+                                       FontSize="13"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,16,0,4"
+                                       Visibility="{Binding HasNoSeats, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
                             <Separator Background="#E2E8F0" Margin="0,18,0,12"/>
 
-                            <TextBlock Text="ĐUÔI XE (Rear)" HorizontalAlignment="Center" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBlock Text="REAR" HorizontalAlignment="Center" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -273,18 +287,18 @@
                 <!-- Passenger Info Card -->
                 <Border Style="{StaticResource CardStyle}" Padding="22" Margin="0,0,0,18">
                     <StackPanel>
-                        <TextBlock Text="Thông tin hành khách" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4"/>
-                        <TextBlock Text="Thông tin dùng để in vé và liên hệ đón xe." FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,16"/>
+                        <TextBlock Text="Passenger details" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                        <TextBlock Text="Used to print the ticket and to contact you about boarding." FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,16" TextWrapping="Wrap"/>
 
                         <!-- Passenger Name -->
-                        <TextBlock Text="Họ và tên hành khách *" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                        <TextBlock Text="Full name *" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
                         <TextBox Text="{Binding PassengerName, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource ModernTextBoxStyle}"
                                  Height="42"
                                  Margin="0,0,0,14"/>
 
                         <!-- Passenger Phone -->
-                        <TextBlock Text="Số điện thoại liên hệ *" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                        <TextBlock Text="Contact phone" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
                         <TextBox Text="{Binding PassengerPhone, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource ModernTextBoxStyle}"
                                  Height="42"/>
@@ -294,42 +308,37 @@
                 <!-- Pricing & Selected Seat Summary Card -->
                 <Border Style="{StaticResource CardStyle}" Padding="22" Margin="0,0,0,18">
                     <StackPanel>
-                        <TextBlock Text="Tóm tắt giá vé" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,14"/>
+                        <TextBlock Text="Fare summary" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,14"/>
 
                         <Grid Margin="0,0,0,8">
-                            <TextBlock Text="Ghế đã chọn:" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="Selected seats" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"/>
                             <Border Background="{StaticResource PrimaryLightBrush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Right">
-                                <TextBlock Text="{Binding SelectedSeatNumber, StringFormat='Ghế {0}'}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
+                                <TextBlock Text="{Binding SelectedSeatNumber}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
                             </Border>
                         </Grid>
 
-                        <Grid Margin="0,0,0,8">
-                            <TextBlock Text="Giá vé niêm yết:" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBlock Text="{Binding Trip.PriceDisplay}" HorizontalAlignment="Right" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                        </Grid>
-
                         <Grid Margin="0,0,0,14">
-                            <TextBlock Text="Phí dịch vụ &amp; bảo hiểm:" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBlock Text="0 VND" HorizontalAlignment="Right" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource SuccessBrush}"/>
+                            <TextBlock Text="Listed fare" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding PriceDisplay}" HorizontalAlignment="Right" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
                         </Grid>
 
                         <Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,14"/>
 
                         <!-- Total Price -->
                         <Grid Margin="0,0,0,18">
-                            <TextBlock Text="Tổng thanh toán:" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="Total due" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding TotalPriceDisplay}" HorizontalAlignment="Right" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
                         </Grid>
 
                         <!-- Proceed Button -->
-                        <Button Content="Tiếp tục xác nhận vé →"
+                        <Button Content="Continue to confirmation →"
                                 Command="{Binding GoToConfirmationCommand}"
                                 Style="{StaticResource AccentButtonStyle}"
                                 Height="44"
                                 FontSize="14"
                                 FontWeight="Bold"/>
 
-                        <Button Content="Quay lại danh sách chuyến"
+                        <Button Content="Back to trip list"
                                 Command="{Binding BackToBookingCommand}"
                                 Style="{StaticResource GhostButtonStyle}"
                                 Margin="0,10,0,0"

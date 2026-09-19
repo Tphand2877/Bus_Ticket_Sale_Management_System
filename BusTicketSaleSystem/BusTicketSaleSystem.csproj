@@ -20,14 +20,10 @@
     <None Update="Data\*.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Remove="Backend\**\*.cs" />
-    <None Remove="Backend\**\*" />
-  </ItemGroup>
-  <ItemGroup>
     <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\QRjpg.jpg"
+    <None Include="..\QR.jpg"
           Link="Assets\BankTransferQr.jpg"
           CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest" />

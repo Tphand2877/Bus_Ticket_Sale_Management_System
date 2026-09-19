@@ -2,6 +2,14 @@ using System.Collections.Generic;
 
 namespace BusTicketSaleSystem.Data;
 
+/// <summary>
+/// Offline province list used by the admin route editor, where a new route may
+/// name a province the database does not serve yet. Customer-facing origin and
+/// destination pickers do NOT use this list: they read the locations actually
+/// served from the database via
+/// <see cref="DatabaseHelper.GetDistinctOriginsAsync"/> and
+/// <see cref="DatabaseHelper.GetDestinationsByOriginAsync"/>.
+/// </summary>
 public static class VietnamProvinces
 {
     public static readonly List<string> List = new()

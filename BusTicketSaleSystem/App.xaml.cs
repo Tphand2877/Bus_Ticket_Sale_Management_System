@@ -12,6 +12,7 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        LocalizationService.Instance.Initialize();
         LoggerService.LogInfo("=== BusTicketSaleSystem starting ===");
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
@@ -24,11 +25,15 @@ public partial class App : Application
             {
                 LoggerService.LogError($"Database migration failed: {DatabaseMigrator.LastError}");
                 MessageBox.Show(
-                    $"Không thể khởi tạo hoặc cập nhật cơ sở dữ liệu.\n\n{DatabaseMigrator.LastError}",
+                    $"The database could not be created or updated.\n\n{DatabaseMigrator.LastError}",
                     "Database Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown(1);
                 return;
             }
+
+            await DatabaseMigrator.EnsureUpcomingTripsAsync();
+            BackgroundJobScheduler.Start();
+            VnPayCallbackListener.Start();
 
             var loginWindow = new LoginWindow();
             MainWindow = loginWindow;
@@ -37,7 +42,7 @@ public partial class App : Application
         catch (Exception ex)
         {
             LoggerService.LogError("Application startup failed.", ex);
-            MessageBox.Show($"Không thể khởi động ứng dụng.\n\n{ex.Message}", "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"The application could not start.\n\n{ex.Message}", "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
     }
@@ -45,7 +50,7 @@ public partial class App : Application
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         LoggerService.LogError("Unhandled UI dispatcher exception.", e.Exception);
-        MessageBox.Show("Đã xảy ra lỗi hệ thống. Chi tiết đã được ghi vào Logs/app-*.log.", "Lỗi hệ thống", MessageBoxButton.OK, MessageBoxImage.Error);
+        MessageBox.Show("A system error occurred. Details were written to Logs/app-*.log.", "System error", MessageBoxButton.OK, MessageBoxImage.Error);
         e.Handled = true;
     }
 
@@ -63,6 +68,8 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        VnPayCallbackListener.Stop();
+        BackgroundJobScheduler.Stop();
         LoggerService.LogInfo("=== BusTicketSaleSystem shutting down ===");
         Log.CloseAndFlush();
         base.OnExit(e);

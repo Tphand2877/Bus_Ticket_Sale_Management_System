@@ -5,9 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:BusTicketSaleSystem.ViewModels"
         xmlns:common="clr-namespace:BusTicketSaleSystem.Common"
+        xmlns:views="clr-namespace:BusTicketSaleSystem.Views"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
-        Title="OmniBus Express - Bus Ticket Sale &amp; Management System"
+        Title="{DynamicResource AppTitle}"
         Height="840" Width="1280"
         MinHeight="700" MinWidth="1080"
         WindowStartupLocation="CenterScreen"
@@ -68,7 +69,7 @@
 
                 <!-- Navigation Links -->
                 <StackPanel Grid.Row="1">
-                    <TextBlock Text="MAIN MENU"
+                    <TextBlock Text="{DynamicResource MenuMain}"
                                FontSize="11"
                                FontWeight="Bold"
                                Foreground="#475569"
@@ -97,7 +98,7 @@
                                   VerticalAlignment="Center"
                                   HorizontalAlignment="Left"/>
                             <TextBlock Grid.Column="2"
-                                       Text="Overview"
+                                       Text="{DynamicResource NavOverview}"
                                        FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="{Binding ActiveTab, Converter={StaticResource NavFgConverter}, ConverterParameter=Overview}"
@@ -128,7 +129,7 @@
                                   VerticalAlignment="Center"
                                   HorizontalAlignment="Left"/>
                             <TextBlock Grid.Column="2"
-                                       Text="Book a Ticket"
+                                       Text="{DynamicResource NavBooking}"
                                        FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="{Binding ActiveTab, Converter={StaticResource NavFgConverter}, ConverterParameter=Booking}"
@@ -159,7 +160,7 @@
                                   VerticalAlignment="Center"
                                   HorizontalAlignment="Left"/>
                             <TextBlock Grid.Column="2"
-                                       Text="My Tickets"
+                                       Text="{DynamicResource NavMyTickets}"
                                        FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="{Binding ActiveTab, Converter={StaticResource NavFgConverter}, ConverterParameter=MyTickets}"
@@ -190,7 +191,7 @@
                                   VerticalAlignment="Center"
                                   HorizontalAlignment="Left"/>
                             <TextBlock Grid.Column="2"
-                                       Text="History"
+                                       Text="{DynamicResource NavHistory}"
                                        FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="{Binding ActiveTab, Converter={StaticResource NavFgConverter}, ConverterParameter=History}"
@@ -221,7 +222,7 @@
                                   VerticalAlignment="Center"
                                   HorizontalAlignment="Left"/>
                             <TextBlock Grid.Column="2"
-                                       Text="Profile &amp; Security"
+                                       Text="{DynamicResource NavProfile}"
                                        FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="{Binding ActiveTab, Converter={StaticResource NavFgConverter}, ConverterParameter=Account}"
@@ -274,8 +275,8 @@
                         <!-- Logout Icon Button -->
                         <Button Grid.Column="2"
                                 Command="{Binding LogoutCommand}"
-                                ToolTip="Sign Out"
-                                Cursor="Hand"
+                                ToolTip="{DynamicResource NavLogoutTooltip}"
+                                AutomationProperties.Name="{DynamicResource NavLogout}"
                                 Background="Transparent"
                                 BorderThickness="0"
                                 Padding="8"
@@ -315,14 +316,55 @@
 
                     <!-- Left: Current Section / Breadcrumb -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Portal" FontSize="13" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text="{DynamicResource Portal}" FontSize="13" Foreground="{StaticResource TextMutedBrush}"/>
                         <TextBlock Text=" / " FontSize="13" Foreground="{StaticResource TextMutedBrush}" Margin="4,0"/>
                         <TextBlock Text="{Binding ActiveTab}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
                     </StackPanel>
 
                     <!-- Right: Quick Booking CTA & User Badge -->
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="+ Book a Trip"
+                        <!-- Location Selector Chip (Khách hàng có thể đổi vị trí theo ý muốn) -->
+                        <Border Background="#EFF6FF"
+                                BorderBrush="#BFDBFE"
+                                BorderThickness="1"
+                                CornerRadius="18"
+                                Padding="10,4"
+                                Margin="0,0,12,0"
+                                ToolTip="Vị trí hiện tại của bạn. Chọn tỉnh thành để tìm và đặt vé từ bất kỳ đâu.">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path Data="{StaticResource IconPin}" Fill="{StaticResource PrimaryBrush}" Width="11" Height="11" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock Text="Vị trí: " FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                <ComboBox ItemsSource="{Binding AvailableLocations}"
+                                          SelectedItem="{Binding CurrentLocation, Mode=TwoWay}"
+                                          IsEditable="False"
+                                          BorderThickness="0"
+                                          Background="Transparent"
+                                          FontSize="12"
+                                          FontWeight="Bold"
+                                          Foreground="#1D4ED8"
+                                          Height="28"
+                                          VerticalContentAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Button Command="{Binding ToggleLanguageCommand}"
+                                Style="{StaticResource GhostButtonStyle}"
+                                ToolTip="{DynamicResource LanguageSwitchPrompt}"
+                                AutomationProperties.Name="Đổi ngôn ngữ / Switch Language"
+                                Margin="0,0,12,0" Padding="0">
+                            <Border Background="{StaticResource SurfaceMutedBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="18"
+                                    Padding="10,6">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="🌐 " FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding CurrentLanguageCode}" FontWeight="Bold" FontSize="12"
+                                               Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </Button>
+
+                        <Button Content="{DynamicResource QuickBookButton}"
                                 Style="{StaticResource AccentButtonStyle}"
                                 Command="{Binding NavigateBookingCommand}"
                                 Height="36"
@@ -350,14 +392,20 @@
                 </Grid>
             </Border>
 
-            <!-- Main Central Content Control -->
-            <ScrollViewer Grid.Row="1"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled"
-                          Focusable="False">
-                <ContentControl Content="{Binding CurrentViewModel}"
-                                Margin="28,24"/>
-            </ScrollViewer>
+            <!-- Main Central Content Control.
+                 Grid (not bare ScrollViewer) so the toast can float above the page content. -->
+            <Grid Grid.Row="1">
+                <ScrollViewer x:Name="ContentScroller"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Focusable="False">
+                    <ContentControl Content="{Binding CurrentViewModel}"
+                                    Margin="28,24"/>
+                </ScrollViewer>
+
+                <!-- Panel keeps the toast out of the scrolled content so it stays pinned. -->
+                <views:NotificationHost/>
+            </Grid>
         </Grid>
     </Grid>
 </Window>

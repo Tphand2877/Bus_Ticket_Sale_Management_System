@@ -24,22 +24,7 @@
 
             <!-- Title & Operational Status -->
             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Operations Dashboard" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                    <!-- Live Status Pill -->
-                    <Border Background="#ECFDF5"
-                            BorderBrush="#A7F3D0"
-                            BorderThickness="1"
-                            CornerRadius="12"
-                            Padding="10,3"
-                            Margin="14,0,0,0"
-                            VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="●" Foreground="{StaticResource SuccessBrush}" FontSize="9" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                            <TextBlock Text="System Live" Foreground="#065F46" FontWeight="SemiBold" FontSize="11"/>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
+                <TextBlock Text="Operations Dashboard" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
                 <TextBlock Text="Monitor routes, bus fleet status, scheduled trip departures, and real-time revenue."
                            FontSize="13"
                            Foreground="{StaticResource TextSecondaryBrush}"
@@ -100,12 +85,18 @@
             </Grid>
         </Border>
 
+        <!-- Busy indicator -->
+        <ProgressBar Style="{StaticResource ModernProgressBarStyle}"
+                     IsIndeterminate="True"
+                     Margin="0,0,0,18"
+                     Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"/>
+
         <!-- ====================================================
              2. KPI SUMMARY METRIC CARDS
              ==================================================== -->
-        <UniformGrid Columns="6" Margin="0,0,0,24">
-            <!-- Card 1: Revenue -->
-            <Border Style="{StaticResource StatCardStyle}" Margin="0,0,8,0">
+        <UniformGrid Columns="4" Margin="0,0,-12,12">
+            <!-- Card 1: Settled revenue -->
+            <Border Style="{StaticResource StatCardStyle}" Margin="0,0,12,12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -118,13 +109,51 @@
                             <Path Data="{StaticResource IconChart}" Fill="{StaticResource SuccessBrush}" Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
-                    <TextBlock Grid.Row="1" Text="{Binding Stats.RevenueDisplay}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}" Margin="0,8,0,2" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Row="2" Text="Confirmed earnings" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBlock Grid.Row="1" Text="{Binding Stats.TotalRevenueDisplay}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}" Margin="0,8,0,2" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Row="2" Text="Settled payments" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
                 </Grid>
             </Border>
 
-            <!-- Card 2: Tickets Sold -->
-            <Border Style="{StaticResource StatCardStyle}" Margin="4,0,4,0">
+            <!-- Card 2: Awaiting settlement -->
+            <Border Style="{StaticResource StatCardStyle}" Margin="0,0,12,12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0">
+                        <TextBlock Text="AWAITING SETTLEMENT" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <Border HorizontalAlignment="Right" Width="32" Height="32" CornerRadius="8" Background="#FFFBEB">
+                            <Path Data="{StaticResource IconClock}" Fill="{StaticResource WarningBrush}" Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
+                    <TextBlock Grid.Row="1" Text="{Binding Stats.PendingSettlementAmountDisplay}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" Margin="0,8,0,2" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Row="2" Text="{Binding Stats.PendingSettlementCaption}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                </Grid>
+            </Border>
+
+            <!-- Card 3: Refunded -->
+            <Border Style="{StaticResource StatCardStyle}" Margin="0,0,12,12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0">
+                        <TextBlock Text="REFUNDED" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                        <Border HorizontalAlignment="Right" Width="32" Height="32" CornerRadius="8" Background="#FEF2F2">
+                            <Path Data="{StaticResource IconArrowLeft}" Fill="{StaticResource DangerBrush}" Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
+                    <TextBlock Grid.Row="1" Text="{Binding Stats.RefundedAmountDisplay}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource DangerBrush}" Margin="0,8,0,2" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Row="2" Text="Returned to customers" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                </Grid>
+            </Border>
+
+            <!-- Card 4: Tickets sold -->
+            <Border Style="{StaticResource StatCardStyle}" Margin="0,0,12,12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -137,13 +166,13 @@
                             <Path Data="{StaticResource IconTicket}" Fill="{StaticResource PrimaryBrush}" Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
-                    <TextBlock Grid.Row="1" Text="{Binding Stats.TicketCount}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Margin="0,6,0,2"/>
-                    <TextBlock Grid.Row="2" Text="Booked &amp; paid" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBlock Grid.Row="1" Text="{Binding Stats.TicketsSold}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Margin="0,6,0,2"/>
+                    <TextBlock Grid.Row="2" Text="Paid and used tickets" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
                 </Grid>
             </Border>
 
-            <!-- Card 3: Upcoming Trips -->
-            <Border Style="{StaticResource StatCardStyle}" Margin="4,0,4,0">
+            <!-- Card 5: Upcoming Trips -->
+            <Border Style="{StaticResource StatCardStyle}" Margin="0,0,12,12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -161,8 +190,8 @@
                 </Grid>
             </Border>
 
-            <!-- Card 4: Bus Fleet -->
-            <Border Style="{StaticResource StatCardStyle}" Margin="4,0,4,0">
+            <!-- Card 6: Bus Fleet -->
+            <Border Style="{StaticResource StatCardStyle}" Margin="0,0,12,12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -180,8 +209,8 @@
                 </Grid>
             </Border>
 
-            <!-- Card 5: Routes -->
-            <Border Style="{StaticResource StatCardStyle}" Margin="4,0,4,0">
+            <!-- Card 7: Routes -->
+            <Border Style="{StaticResource StatCardStyle}" Margin="0,0,12,12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -199,8 +228,8 @@
                 </Grid>
             </Border>
 
-            <!-- Card 6: Customers -->
-            <Border Style="{StaticResource StatCardStyle}" Margin="8,0,0,0">
+            <!-- Card 8: Customers -->
+            <Border Style="{StaticResource StatCardStyle}" Margin="0,0,12,12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -422,7 +451,7 @@
                                                     Padding="8,3"
                                                     HorizontalAlignment="Right"
                                                     VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Status}" FontSize="11" FontWeight="SemiBold" Foreground="#065F46"/>
+                                                <TextBlock Text="{Binding Status, Converter={StaticResource TicketStatusToDisplay}}" FontSize="11" FontWeight="SemiBold" Foreground="#065F46"/>
                                             </Border>
                                         </Grid>
                                     </Border>
@@ -492,7 +521,7 @@
                         </Button>
 
                         <!-- Action: Trips -->
-                        <Button Command="{Binding NavigateTripsCommand}" Style="{StaticResource QuickActionButtonStyle}" Margin="0">
+                        <Button Command="{Binding NavigateTripsCommand}" Style="{StaticResource QuickActionButtonStyle}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -505,6 +534,44 @@
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="Trip Departures" FontWeight="Bold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}"/>
                                     <TextBlock Text="Assign buses, schedules &amp; pricing" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="2" Text="➔" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
+
+                        <!-- Action: Payments -->
+                        <Button Command="{Binding NavigatePaymentsCommand}" Style="{StaticResource QuickActionButtonStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8" Background="#FFFBEB" Margin="0,0,12,0">
+                                    <TextBlock Text="💳" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Payments &amp; Settlement" FontWeight="Bold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Confirm transfers, refunds &amp; check-in" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="2" Text="➔" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
+
+                        <!-- Action: Reports -->
+                        <Button Command="{Binding NavigateReportsCommand}" Style="{StaticResource QuickActionButtonStyle}" Margin="0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8" Background="#ECFDF5" Margin="0,0,12,0">
+                                    <TextBlock Text="📊" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Revenue Reports" FontWeight="Bold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Per-route revenue for any date range" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
                                 </StackPanel>
                                 <TextBlock Grid.Column="2" Text="➔" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
                             </Grid>
@@ -581,34 +648,25 @@
                         <Border Background="#F8FAFC" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12">
                             <StackPanel>
                                 <Grid Margin="0,0,0,8">
-                                    <TextBlock Text="Database Engine" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="Microsoft SQL Server" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="SQL Server instance" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding DatabaseServer}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" MaxWidth="150"/>
                                 </Grid>
                                 <Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,8"/>
 
                                 <Grid Margin="0,0,0,8">
                                     <TextBlock Text="Catalog" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="BusTicketSaleSystem" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="{Binding DatabaseCatalog}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" MaxWidth="150"/>
                                 </Grid>
                                 <Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,8"/>
 
                                 <Grid Margin="0,0,0,8">
-                                    <TextBlock Text="Connection" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <TextBlock Text="● " Foreground="{StaticResource SuccessBrush}" FontSize="10" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Connected" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource SuccessBrush}"/>
-                                    </StackPanel>
-                                </Grid>
-                                <Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,8"/>
-
-                                <Grid Margin="0,0,0,8">
-                                    <TextBlock Text="Security" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="PBKDF2 SHA-256" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="Dashboard data" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding LastRefreshed}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right"/>
                                 </Grid>
                                 <Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,8"/>
 
                                 <Grid>
-                                    <TextBlock Text="Current Admin" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
+                                    <TextBlock Text="Signed in as" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
                                     <TextBlock Text="{Binding AdminName}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Right"/>
                                 </Grid>
                             </StackPanel>

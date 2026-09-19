@@ -1,25 +1,49 @@
-using BusTicketSaleSystem.Data;
-using System.ComponentModel.DataAnnotations;
+using BusTicketSaleSystem.ViewModels;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace BusTicketSaleSystem.Views;
 
+/// <summary>
+/// Interaction logic for SignUpWindow.xaml. Holds window lifetime only; validation and account
+/// creation live in <see cref="SignUpViewModel"/>.
+/// </summary>
 public partial class SignUpWindow : Window
 {
-    public SignUpWindow() => InitializeComponent();
+    private readonly SignUpViewModel _viewModel = new();
 
-    private async void CreateAccountButton_Click(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Success notice for the sign-in screen, set when an account was created. Empty otherwise.
+    /// </summary>
+    public string SuccessNotice { get; private set; } = string.Empty;
+
+    public SignUpWindow()
     {
-        var fullName=TxtFullName.Text.Trim(); var username=TxtUsername.Text.Trim(); var email=TxtEmail.Text.Trim(); var phone=TxtPhone.Text.Trim(); var password=TxtPassword.Password;
-        if (string.IsNullOrWhiteSpace(fullName)||string.IsNullOrWhiteSpace(username)||string.IsNullOrWhiteSpace(password)){ShowError("Full name, username và password là bắt buộc.");return;}
-        if (username.Length>50||username.Any(char.IsWhiteSpace)){ShowError("Username tối đa 50 ký tự và không chứa khoảng trắng.");return;}
-        if (password.Length<8){ShowError("Mật khẩu phải có ít nhất 8 ký tự.");return;}
-        if (!string.IsNullOrWhiteSpace(email)&&!new EmailAddressAttribute().IsValid(email)){ShowError("Email không hợp lệ.");return;}
-        if (password!=TxtConfirmPassword.Password){ShowError("Mật khẩu xác nhận không khớp.");return;}
-        BtnCreate.IsEnabled=false; TxtError.Visibility=Visibility.Collapsed;
-        var result=await DatabaseHelper.CreateAccountAsync(username,password,fullName,string.IsNullOrWhiteSpace(phone)?null:phone,string.IsNullOrWhiteSpace(email)?null:email);
-        if(!result.Success){ShowError(result.Error??"Không thể tạo tài khoản.");BtnCreate.IsEnabled=true;return;}
-        MessageBox.Show("Tạo tài khoản thành công. Bạn có thể đăng nhập ngay bây giờ.","Success",MessageBoxButton.OK,MessageBoxImage.Information);Close();
+        InitializeComponent();
+        _viewModel.RegistrationSucceeded += OnRegistrationSucceeded;
+        _viewModel.RegistrationCancelled += Close;
+        DataContext = _viewModel;
     }
-    private void ShowError(string message){TxtError.Text=message;TxtError.Visibility=Visibility.Visible;}
+
+    /// <summary>
+    /// WPF's <see cref="PasswordBox"/> deliberately does not expose a bindable password, so both
+    /// values are pushed into the ViewModel here. This is the only logic in this code-behind.
+    /// </summary>
+    private void PasswordBox_OnPasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender is not PasswordBox box) return;
+        switch (box.Tag as string)
+        {
+            case "Password": _viewModel.Password = box.Password; break;
+            case "ConfirmPassword": _viewModel.ConfirmPassword = box.Password; break;
+        }
+    }
+
+    private void OnRegistrationSucceeded(string notice)
+    {
+        SuccessNotice = notice;
+        TxtPassword.Clear();
+        TxtConfirmPassword.Clear();
+        Close();
+    }
 }

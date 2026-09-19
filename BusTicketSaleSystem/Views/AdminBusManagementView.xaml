@@ -1,110 +1,659 @@
 <UserControl x:Class="BusTicketSaleSystem.Views.AdminBusManagementView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:common="clr-namespace:BusTicketSaleSystem.Common"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:BusTicketSaleSystem.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:AdminBusManagementViewModel}"
              FontFamily="{StaticResource AppFont}">
 
-    <UserControl.Resources>
-        <common:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
-    </UserControl.Resources>
-
     <StackPanel Margin="0,0,0,30">
-        <TextBlock Text="Bus Fleet Management" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-        <TextBlock Text="Quản lý đội xe và sơ đồ ghế tự động của từng phương tiện" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,16"/>
+        <!-- Page Header -->
+        <Grid Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Đăng Ký &amp; Quản Lý Xe Vào Bến" FontSize="24" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="Hồ sơ phương tiện, nhà xe, đăng kiểm, tuyến hoạt động và biểu đồ xuất bến" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="{Binding FormToggleButtonText}"
+                        Command="{Binding ToggleFormCommand}"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Height="38" Padding="16,0" Margin="0,0,10,0"/>
+                <Button Content="Làm mới"
+                        Command="{Binding RefreshCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Height="38" Padding="18,0"/>
+            </StackPanel>
+        </Grid>
 
-        <!-- Add Bus Card -->
-        <Border Style="{StaticResource CardStyle}" Padding="20" Margin="0,0,0,20">
+        <!-- Registration Form Card -->
+        <Border Style="{StaticResource CardStyle}" Padding="22" Margin="0,0,0,20"
+                Visibility="{Binding IsFormVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
             <StackPanel>
-                <TextBlock Text="Thêm xe mới vào đội xe" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <Grid Margin="0,0,0,14">
+                    <StackPanel Orientation="Horizontal" Visibility="{Binding IsEditing, Converter={StaticResource BooleanToVisibilityInvertedConverter}}">
+                        <TextBlock Text="Đăng ký phương tiện mới vào bến" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" CornerRadius="6" Padding="8,2" Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="Hỗ trợ 1 nhà xe quản lý nhiều xe, nhiều tuyến &amp; nhiều khung giờ" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}"/>
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Text="Chỉnh sửa hồ sơ đăng ký xe" FontWeight="Bold" FontSize="16" Foreground="{StaticResource PrimaryBrush}"
+                               Visibility="{Binding IsEditing, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                </Grid>
 
-                <Grid Margin="0,12,0,0">
+                <!-- SECTION 1: Nhà xe & Đơn vị vận tải -->
+                <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="1. THÔNG TIN NHÀ XE &amp; THƯƠNG HIỆU (Chọn nhà xe có sẵn để tự điền hoặc nhập nhà xe mới)" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="14"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="14"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="14"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Tên nhà xe -->
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Tên nhà xe *" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                                <ComboBox ItemsSource="{Binding AvailableCompanies}"
+                                          Text="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                          IsEditable="True"
+                                          Height="36"
+                                          ToolTip="Chọn nhà xe có sẵn (như Hà Lan, Sao Việt...) hoặc gõ tên nhà xe mới"/>
+                            </StackPanel>
+
+                            <!-- Đơn vị đăng ký -->
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Đơn vị đăng ký / HTX" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding RegisteredEntity, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ModernTextBoxStyle}" Height="36"
+                                         ToolTip="Ví dụ: Công ty CP Xe khách Hà Lan"/>
+                            </StackPanel>
+
+                            <!-- Hotline tổng đài -->
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Hotline tổng đài nhà xe" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding CompanyHotline, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ModernTextBoxStyle}" Height="36"
+                                         ToolTip="Ví dụ: 1900 6868"/>
+                            </StackPanel>
+
+                            <!-- Khu vực tuyến chính -->
+                            <StackPanel Grid.Column="6">
+                                <TextBlock Text="Khu vực hoạt động chính" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding CompanyOperatingArea, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ModernTextBoxStyle}" Height="36"
+                                         ToolTip="Ví dụ: Thái Nguyên - Hà Nội - Bắc Ninh"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Tiện ích & Giới thiệu ngắn -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="14"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Tiện ích dịch vụ trên xe" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding CompanyAmenities, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ModernTextBoxStyle}" Height="36"
+                                         ToolTip="Ví dụ: Wifi tốc độ cao, Nước uống, Khăn lạnh, Điều hòa, Cổng sạc USB"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Giới thiệu sơ qua về nhà xe" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding CompanyDescription, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ModernTextBoxStyle}" Height="36"
+                                         ToolTip="Đoạn giới thiệu ngắn về nhà xe hiển thị cho khách hàng"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- SECTION 2: QUẢN LÝ ĐỘI XE CỦA NHÀ XE (Nhiều xe, nhiều tuyến & nhiều khung giờ) -->
+                <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,12">
+                    <StackPanel>
+                        <!-- Header mục xe & Nút thêm xe -->
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="2. DANH SÁCH XE ĐĂNG KÝ CỦA NHÀ XE NÀY" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
+                                <TextBlock Text="Mỗi chiếc xe có biển số, tài xế, tuyến đường, chặng dừng, giá toàn tuyến / giá chặng và khung giờ xuất bến riêng."
+                                           FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <!-- Nút Thêm xe mới vào nhà xe -->
+                            <Button Grid.Column="1"
+                                    Content="+ Thêm xe mới vào nhà xe"
+                                    Command="{Binding StartNewVehicleDraftCommand}"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    Height="34" Padding="14,0" FontSize="11.5"
+                                    ToolTip="Bấm để cấu hình và thêm một chiếc xe mới vào đội xe của nhà xe này"/>
+                        </Grid>
+
+                        <!-- Danh sách các xe đã thêm vào nhà xe (Draft Buses) -->
+                        <StackPanel Visibility="{Binding HasDraftBuses, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,14">
+                            <TextBlock Text="Các xe đã chuẩn bị đăng ký cho nhà xe này:" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"/>
+                            <ItemsControl ItemsSource="{Binding DraftBuses}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="170"/>
+                                                    <ColumnDefinition Width="200"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Col 0: Biển số & Kiểu xe -->
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <Border Background="{StaticResource PrimaryLightBrush}" CornerRadius="6" Padding="6,2" HorizontalAlignment="Left" Margin="0,0,0,3">
+                                                        <TextBlock Text="{Binding Plate}" FontWeight="Bold" FontSize="13" Foreground="{StaticResource PrimaryBrush}"/>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding VehicleDisplay}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+
+                                                <!-- Col 1: Tài xế & Tuyến chạy -->
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0">
+                                                    <TextBlock Text="{Binding RouteDisplay}" FontWeight="Bold" FontSize="12.5" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                                    <TextBlock Text="{Binding DriverDisplay}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                                                </StackPanel>
+
+                                                <!-- Col 2: Chặng dừng & Giá vé & Giờ chạy -->
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="10,0">
+                                                    <TextBlock Text="{Binding PriceSummary}" FontWeight="SemiBold" FontSize="11.5" Foreground="{StaticResource PrimaryBrush}"/>
+                                                    <TextBlock Text="{Binding IntermediateStops, StringFormat='Chặng dừng: {0}'}" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+                                                    <TextBlock Text="{Binding ScheduleSummary}" FontSize="10.5" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+                                                </StackPanel>
+
+                                                <!-- Col 3: Actions -->
+                                                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Button Content="Sửa"
+                                                            Command="{Binding DataContext.EditDraftVehicleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource SecondaryButtonStyle}"
+                                                            Height="30" Padding="10,0" FontSize="11" Margin="0,0,6,0"/>
+                                                    <Button Content="Xóa"
+                                                            Command="{Binding DataContext.RemoveDraftVehicleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource GhostButtonStyle}"
+                                                            Height="30" Padding="8,0" FontSize="11" Foreground="{StaticResource DangerBrush}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- PANEL ĐIỀN CHI TIẾT TỪNG XE (Mở khi bấm "+ Thêm xe" hoặc sửa xe) -->
+                        <Border Background="#F1F5F9" BorderBrush="#94A3B8" BorderThickness="1" CornerRadius="8" Padding="14"
+                                Visibility="{Binding IsVehiclePanelVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Điền thông tin chi tiết cho phương tiện này:" FontWeight="Bold" FontSize="12.5" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="(Điền xong bấm 'Lưu xe này vào danh sách nhà xe' bên dưới)" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Hàng 1: Biển số, Số ghế, Hạng xe, Loại hình, Hãng, Model, Màu -->
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="90"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Biển kiểm soát -->
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Biển kiểm soát *" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                        <TextBox Text="{Binding Plate, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource ModernTextBoxStyle}" Height="34"
+                                                 ToolTip="Ví dụ: 20B-012.34 hoặc 29B-998.81"/>
+                                    </StackPanel>
+
+                                    <!-- Số chỗ -->
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Số ghế *" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                        <TextBox Text="{Binding SeatCount, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource ModernTextBoxStyle}" Height="34"
+                                                 ToolTip="Ví dụ: 9, 16, 29, 34, 40"/>
+                                    </StackPanel>
+
+                                    <!-- Phân hạng xe -->
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Hạng xe *" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                        <ComboBox ItemsSource="{Binding BusTypes}"
+                                                  SelectedItem="{Binding BusType}"
+                                                  Height="34"/>
+                                    </StackPanel>
+
+                                    <!-- Loại hình hoạt động -->
+                                    <StackPanel Grid.Column="6">
+                                        <TextBlock Text="Loại hình" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                        <ComboBox ItemsSource="{Binding OperationTypes}"
+                                                  SelectedItem="{Binding OperationType}"
+                                                  Height="34"/>
+                                    </StackPanel>
+
+                                    <!-- Hãng xe -->
+                                    <StackPanel Grid.Column="8">
+                                        <TextBlock Text="Hãng xe" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                        <TextBox Text="{Binding Make, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource ModernTextBoxStyle}" Height="34"/>
+                                    </StackPanel>
+
+                                    <!-- Dòng xe / Model -->
+                                    <StackPanel Grid.Column="10">
+                                        <TextBlock Text="Dòng xe (Model)" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                        <TextBox Text="{Binding Model, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource ModernTextBoxStyle}" Height="34"/>
+                                    </StackPanel>
+
+                                    <!-- Màu xe -->
+                                    <StackPanel Grid.Column="12">
+                                        <TextBlock Text="Màu sơn xe" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                        <TextBox Text="{Binding Color, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource ModernTextBoxStyle}" Height="34"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Hàng 2: Tài xế riêng của xe này & Đăng kiểm -->
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="120"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Tài xế riêng -->
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Tài xế chính của xe này *" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                        <TextBox Text="{Binding DriverName, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource ModernTextBoxStyle}" Height="34"
+                                                 ToolTip="Mỗi xe có thể phân công tài xế riêng"/>
+                                    </StackPanel>
+
+                                    <!-- SĐT tài xế -->
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Số điện thoại tài xế *" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                        <TextBox Text="{Binding DriverPhone, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource ModernTextBoxStyle}" Height="34"/>
+                                    </StackPanel>
+
+                                    <!-- Số đăng ký / Số sổ ĐK -->
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Text="Số sổ đăng kiểm" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                        <TextBox Text="{Binding InspectionNumber, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource ModernTextBoxStyle}" Height="34"/>
+                                    </StackPanel>
+
+                                    <!-- Hạn đăng kiểm -->
+                                    <StackPanel Grid.Column="6">
+                                        <TextBlock Text="Hạn đăng kiểm" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                        <DatePicker SelectedDate="{Binding InspectionExpiryDate, Mode=TwoWay}" Height="34"/>
+                                    </StackPanel>
+
+                                    <!-- Hạn bảo hiểm -->
+                                    <StackPanel Grid.Column="8">
+                                        <TextBlock Text="Hạn bảo hiểm" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                        <DatePicker SelectedDate="{Binding InsuranceExpiryDate, Mode=TwoWay}" Height="34"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Hàng 3: Tuyến đường chạy riêng của xe này, Chặng dừng (COMBO BOX) & Giá toàn tuyến / Giá chặng -->
+                                <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Text="Tuyến khai thác, Chặng dừng đón/trả và Giá vé (Toàn tuyến &amp; Từng chặng)" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,8"/>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="135"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="135"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="130"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="130"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Điểm đi -->
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Điểm đi (Xuất phát) *" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                                                <ComboBox ItemsSource="{Binding AvailableOrigins}"
+                                                          SelectedItem="{Binding SelectedOrigin}"
+                                                          Text="{Binding SelectedOrigin, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                                          IsEditable="True"
+                                                          Height="34"/>
+                                            </StackPanel>
+
+                                            <!-- Điểm đến -->
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Điểm đến (Nơi đến) *" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                                                <ComboBox ItemsSource="{Binding AvailableDestinations}"
+                                                          SelectedItem="{Binding SelectedDestination}"
+                                                          Text="{Binding SelectedDestination, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                                          IsEditable="True"
+                                                          Height="34"/>
+                                            </StackPanel>
+
+                                            <!-- Chặng dừng trên đường (LÀM BẰNG COMBO BOX) -->
+                                            <StackPanel Grid.Column="4">
+                                                <TextBlock Text="Các chặng dừng trên đường (Chọn từ ComboBox) *" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                                                <ComboBox ItemsSource="{Binding AvailableStopPresets}"
+                                                          SelectedItem="{Binding SelectedStopOption, Mode=TwoWay}"
+                                                          Text="{Binding IntermediateStops, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                                          IsEditable="True"
+                                                          Height="34"
+                                                          ToolTip="Chọn lộ trình chặng dừng có sẵn hoặc chọn từng trạm dừng trên tuyến"/>
+                                            </StackPanel>
+
+                                            <!-- Nút nối thêm trạm -->
+                                            <StackPanel Grid.Column="6" VerticalAlignment="Bottom">
+                                                <Button Content="+ Nối trạm"
+                                                        Command="{Binding AddStopToRouteCommand}"
+                                                        Style="{StaticResource SecondaryButtonStyle}"
+                                                        Height="34" Padding="8,0" FontSize="11"
+                                                        ToolTip="Nối thêm điểm dừng đang chọn vào danh sách chặng dừng"/>
+                                            </StackPanel>
+
+                                            <!-- Giá vé toàn tuyến -->
+                                            <StackPanel Grid.Column="8">
+                                                <TextBlock Text="Vé toàn tuyến (VND) *" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                                                <TextBox Text="{Binding FarePrice, UpdateSourceTrigger=PropertyChanged}"
+                                                         Style="{StaticResource ModernTextBoxStyle}" Height="34"
+                                                         ToolTip="Giá vé trọn vẹn toàn bộ tuyến"/>
+                                            </StackPanel>
+
+                                            <!-- Giá vé mỗi chặng -->
+                                            <StackPanel Grid.Column="10">
+                                                <TextBlock Text="Vé mỗi chặng (VND) *" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,2"/>
+                                                <TextBox Text="{Binding StagePrice, UpdateSourceTrigger=PropertyChanged}"
+                                                         Style="{StaticResource ModernTextBoxStyle}" Height="34"
+                                                         ToolTip="Giá vé áp dụng cho khách lên/xuống ở các chặng dừng dọc đường"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Hàng 4: Khung giờ chạy của xe này -->
+                                <StackPanel Margin="0,0,0,10">
+                                    <Grid Margin="0,0,0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Các khung giờ xuất bến trong ngày của xe này *" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBlock Grid.Column="1" Text="(Gõ giờ cách nhau bằng dấu phẩy hoặc bấm các nút chọn nhanh)" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="8,0,0,0"/>
+                                    </Grid>
+                                    <TextBox Text="{Binding DepartureTimeNote, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource ModernTextBoxStyle}" Height="34"
+                                             ToolTip="Ví dụ: 06:00, 08:30, 11:00, 14:00, 16:30, 19:00"/>
+
+                                    <!-- Preset nhanh giờ -->
+                                    <WrapPanel Margin="0,6,0,0">
+                                        <TextBlock Text="Thêm nhanh giờ:" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <Button Content="+ Sáng (06:00, 08:30)" Command="{Binding PresetMorningCommand}" Style="{StaticResource SecondaryButtonStyle}" Height="26" Padding="6,0" FontSize="10" Margin="0,0,4,3"/>
+                                        <Button Content="+ Trưa (11:00, 13:30)" Command="{Binding PresetNoonCommand}" Style="{StaticResource SecondaryButtonStyle}" Height="26" Padding="6,0" FontSize="10" Margin="0,0,4,3"/>
+                                        <Button Content="+ Chiều (15:30, 17:30)" Command="{Binding PresetAfternoonCommand}" Style="{StaticResource SecondaryButtonStyle}" Height="26" Padding="6,0" FontSize="10" Margin="0,0,4,3"/>
+                                        <Button Content="+ Tối (19:30, 21:00)" Command="{Binding PresetEveningCommand}" Style="{StaticResource SecondaryButtonStyle}" Height="26" Padding="6,0" FontSize="10" Margin="0,0,4,3"/>
+                                        <Button Content="⚡ Chạy liên tục 1h/chuyến (như xe Hà Lan)" Command="{Binding PresetContinuousHourlyCommand}" Style="{StaticResource PrimaryButtonStyle}" Height="26" Padding="8,0" FontSize="10" Margin="0,0,4,3"/>
+                                        <Button Content="⚡ Chạy 2h/chuyến" Command="{Binding PresetContinuousTwoHourlyCommand}" Style="{StaticResource SecondaryButtonStyle}" Height="26" Padding="6,0" FontSize="10" Margin="0,0,4,3"/>
+                                        <Button Content="✕ Xóa giờ" Command="{Binding ClearTimeSlotsCommand}" Style="{StaticResource GhostButtonStyle}" Height="26" Padding="6,0" FontSize="10" Foreground="{StaticResource DangerBrush}" Margin="0,0,0,3"/>
+                                    </WrapPanel>
+                                </StackPanel>
+
+                                <!-- Buttons của panel xe này -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
+                                    <Button Content="✓ Lưu xe này vào danh sách nhà xe"
+                                            Command="{Binding SaveVehicleDraftCommand}"
+                                            Style="{StaticResource PrimaryButtonStyle}"
+                                            Height="36" Padding="16,0" Margin="0,0,8,0"
+                                            ToolTip="Lưu chiếc xe này vào danh sách chuẩn bị đăng ký"/>
+                                    <Button Content="Đóng mục nhập xe"
+                                            Command="{Binding CancelVehicleDraftCommand}"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            Height="36" Padding="12,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- SECTION 3: Action Buttons & Hoàn tất đăng ký toàn bộ đội xe -->
+                <Grid Margin="0,6,0,0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="140"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                        <TextBlock Text="Biển số xe (License Plate)" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
-                        <TextBox Text="{Binding Plate, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource ModernTextBoxStyle}"
-                                 Height="38"
-                                 ToolTip="Ví dụ: 29B-123.45"/>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="Hệ thống sẽ đăng ký toàn bộ các xe vào bến, tạo sơ đồ ghế riêng và tự động sinh lịch các chuyến xe theo khung giờ của từng xe cho 14 ngày tới."
+                                   Foreground="{StaticResource TextMutedBrush}" FontSize="12"/>
+                        <TextBlock Text="{Binding Message}" Foreground="{StaticResource PrimaryBrush}" Margin="0,6,0,0" FontWeight="SemiBold" TextWrapping="Wrap"
+                                   Visibility="{Binding HasMessage, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                     </StackPanel>
 
-                    <StackPanel Grid.Column="1" Margin="8,0,8,0">
-                        <TextBlock Text="Số lượng ghế" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
-                        <TextBox Text="{Binding SeatCount, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource ModernTextBoxStyle}"
-                                 Height="38"
-                                 ToolTip="Số lượng ghế ngồi / giường nằm"/>
-                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <!-- Khi thêm mới: Nút lưu toàn bộ đội xe -->
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding IsEditing, Converter={StaticResource BooleanToVisibilityInvertedConverter}}">
+                            <Button Content="ĐĂNG KÝ TOÀN BỘ ĐỘI XE VÀO BẾN"
+                                    Command="{Binding SaveAllBusesCommand}"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Height="42" Padding="22,0" Margin="0,0,10,0"
+                                    ToolTip="Lưu thông tin nhà xe và đăng ký tất cả các xe trong danh sách vào bến"/>
+                            <Button Content="Đóng form"
+                                    Command="{Binding ToggleFormCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Height="42" Padding="16,0"/>
+                        </StackPanel>
 
-                    <StackPanel Grid.Column="2" Margin="8,0,8,0">
-                        <TextBlock Text="Loại xe (Bus Type)" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
-                        <TextBox Text="{Binding BusType, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource ModernTextBoxStyle}"
-                                 Height="38"
-                                 ToolTip="Ví dụ: Ghế ngồi, Giường nằm, Limousine VIP..."/>
+                        <!-- Khi chỉnh sửa 1 xe -->
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding IsEditing, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Button Content="Lưu thay đổi hồ sơ xe"
+                                    Command="{Binding UpdateCommand}"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Height="42" Padding="18,0" Margin="0,0,8,0"/>
+                            <Button Content="Hủy bỏ"
+                                    Command="{Binding CancelEditCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Height="42" Padding="14,0"/>
+                        </StackPanel>
                     </StackPanel>
-
-                    <Button Grid.Column="3"
-                            Content="Thêm xe &amp; Sinh sơ đồ ghế"
-                            Command="{Binding AddCommand}"
-                            Style="{StaticResource PrimaryButtonStyle}"
-                            Height="38"
-                            Padding="16,0"
-                            VerticalAlignment="Bottom"/>
                 </Grid>
-
-                <TextBlock Text="{Binding Message}" Foreground="{StaticResource DangerBrush}" Margin="0,8,0,0" FontWeight="Medium"
-                           Visibility="{Binding Message, Converter={StaticResource StringToVisibilityConverter}}"/>
             </StackPanel>
         </Border>
 
+        <!-- Delete confirmation -->
+        <Border Background="{StaticResource DangerLightBrush}"
+                BorderBrush="{StaticResource DangerBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16,12"
+                Margin="0,0,0,16"
+                Visibility="{Binding IsConfirmingDelete, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding DeleteConfirmationPrompt}" Foreground="{StaticResource DangerBrush}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="Xác nhận xóa"
+                            Command="{Binding ConfirmDeleteCommand}"
+                            Style="{StaticResource DangerButtonStyle}"
+                            Height="34" Padding="14,0" Margin="12,0,8,0"/>
+                    <Button Content="Hủy"
+                            Command="{Binding CancelDeleteCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Height="34" Padding="12,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Busy indicator -->
+        <ProgressBar Style="{StaticResource ModernProgressBarStyle}"
+                     IsIndeterminate="True"
+                     Margin="0,0,0,14"
+                     Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+        <!-- Fleet List Header -->
+        <Grid Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Danh sách phương tiện đã đăng ký hoạt động trong bến" FontSize="17" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Text="{Binding FleetSummaryText}" FontSize="12.5" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- Fleet Filter & Search Bar -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,0,0,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Filter by Company -->
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Lọc theo nhà xe" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                    <ComboBox ItemsSource="{Binding CompanyFilterOptions}"
+                              SelectedItem="{Binding SelectedCompanyFilter, Mode=TwoWay}"
+                              Height="36"/>
+                </StackPanel>
+
+                <!-- Search box -->
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Tìm kiếm xe (Biển số / Tuyến / Tài xế / Hạng xe)" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding FleetSearchText, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource ModernTextBoxStyle}" Height="36"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <!-- Fleet List -->
-        <TextBlock Text="Danh sách đội xe đang hoạt động" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
-        <ItemsControl ItemsSource="{Binding Buses}">
+        <ItemsControl ItemsSource="{Binding FilteredBuses}"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,8">
+                    <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="170"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="150"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
+                            <!-- Column 0: Biển số & ID -->
                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding LicensePlate}" FontWeight="Bold" FontSize="15" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                <TextBlock Text="{Binding BusId, StringFormat='Mã xe: #{0}'}" Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,2,0,0"/>
+                                <Border Background="{StaticResource PrimaryLightBrush}" CornerRadius="6" Padding="8,4" HorizontalAlignment="Left" Margin="0,0,0,4">
+                                    <TextBlock Text="{Binding LicensePlate}" FontWeight="Bold" FontSize="14" Foreground="{StaticResource PrimaryBrush}"/>
+                                </Border>
+                                <TextBlock Text="{Binding OperationType}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
                             </StackPanel>
 
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding BusType}" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                <TextBlock Text="{Binding SeatCount, StringFormat='{}Quy mô: {0} chỗ'}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                            <!-- Column 1: Nhà xe & Tài xế -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0">
+                                <TextBlock Text="{Binding CompanyName}" FontWeight="Bold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding DriverName, StringFormat='TX: {0}'}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,2,0,0"/>
+                                <TextBlock Text="{Binding DriverPhone}" Foreground="{StaticResource TextMutedBrush}" FontSize="10"/>
                             </StackPanel>
 
-                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Availability}" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource PrimaryBrush}"/>
-                                <TextBlock Text="Tình trạng vé đã xuất" Foreground="{StaticResource TextMutedBrush}" FontSize="11"/>
+                            <!-- Column 2: Tuyến đường & Điểm dừng -->
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="10,0">
+                                <TextBlock Text="{Binding RouteName}" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding IntermediateStops, StringFormat='Điểm dừng: {0}'}"
+                                           Foreground="{StaticResource TextMutedBrush}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                                <TextBlock Text="{Binding DepartureTimeNote, StringFormat='Giờ xuất bến: {0}'}"
+                                           Foreground="{StaticResource PrimaryBrush}" FontSize="11" FontWeight="Medium" Margin="0,2,0,0"/>
                             </StackPanel>
 
-                            <Button Grid.Column="3"
-                                    Content="Xóa xe"
-                                    Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding}"
-                                    Style="{StaticResource GhostButtonStyle}"
-                                    Padding="14,6"
-                                    FontSize="12"
-                                    Foreground="{StaticResource DangerBrush}"
-                                    VerticalAlignment="Center"/>
+                            <!-- Column 3: Quy cách xe & Đăng kiểm -->
+                            <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="10,0">
+                                <TextBlock Text="{Binding SpecsDisplay}" FontWeight="Medium" FontSize="11.5" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding SeatCount, StringFormat='Sức chứa: {0} chỗ'}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,2,0,0"/>
+                                <TextBlock Text="{Binding LegalStatusDisplay}" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <!-- Column 4: Actions -->
+                            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="Sửa hồ sơ"
+                                        Command="{Binding DataContext.SelectForEditCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Padding="14,6"
+                                        FontSize="12"
+                                        Margin="0,0,8,0"/>
+                                <Button Content="Xóa"
+                                        Command="{Binding DataContext.RequestDeleteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Style="{StaticResource GhostButtonStyle}"
+                                        Padding="12,6"
+                                        FontSize="12"
+                                        Foreground="{StaticResource DangerBrush}"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
+
+        <!-- Empty state -->
+        <Border Style="{StaticResource CardStyle}" Padding="28"
+                Visibility="{Binding HasNoBuses, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="🚍" FontSize="32" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                <TextBlock Text="Chưa có phương tiện nào đăng ký vào bến" FontWeight="SemiBold" FontSize="15" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                <TextBlock Text="Điền thông tin vào mẫu bên trên để đăng ký xe vào bến. Sơ đồ ghế sẽ được tạo tự động."
+                           FontSize="12" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+            </StackPanel>
+        </Border>
     </StackPanel>
 </UserControl>

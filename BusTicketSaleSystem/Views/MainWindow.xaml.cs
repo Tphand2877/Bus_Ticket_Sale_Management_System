@@ -2,6 +2,7 @@ using BusTicketSaleSystem.Models;
 using BusTicketSaleSystem.Services;
 using BusTicketSaleSystem.ViewModels;
 using System;
+using System.ComponentModel;
 using System.Windows;
 
 namespace BusTicketSaleSystem.Views;
@@ -27,6 +28,19 @@ public partial class MainWindow : Window
             loginWindow.Show();
             Close();
         };
+
+        // A new page must start at the top. The shell reuses a single ScrollViewer for every
+        // page, so without this the user lands mid-page after navigating away from a scrolled one.
+        mainViewModel.PropertyChanged += OnShellPropertyChanged;
+
         DataContext = mainViewModel;
+    }
+
+    private void OnShellPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.CurrentViewModel))
+        {
+            ContentScroller.ScrollToTop();
+        }
     }
 }

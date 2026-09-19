@@ -18,23 +18,39 @@
 
             <StackPanel Grid.Column="0">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Welcome back, " FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Chào mừng trở lại, " FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
                     <TextBlock Text="{Binding UserName}" FontSize="26" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
                     <TextBlock Text="!" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
                 </StackPanel>
-                <TextBlock Text="Search scheduled routes, choose your preferred seat, and view your bookings."
+                <TextBlock Text="Tìm kiếm chuyến xe, chọn ghế ngồi ưng ý và quản lý vé đã đặt dễ dàng."
                            FontSize="14"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            Margin="0,4,0,0"/>
             </StackPanel>
 
             <Button Grid.Column="1"
-                    Content="View My Tickets"
+                    Content="Xem vé của tôi"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Command="{Binding ViewTicketCommand}"
                     VerticalAlignment="Center"
                     Padding="16,9"/>
         </Grid>
+
+        <!-- Data load feedback -->
+        <ProgressBar Height="4"
+                     Margin="0,0,0,12"
+                     IsIndeterminate="True"
+                     Style="{StaticResource ModernProgressBarStyle}"
+                     Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+        <Border Background="{StaticResource DangerLightBrush}"
+                BorderBrush="{StaticResource DangerBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="14,10"
+                Margin="0,0,0,16"
+                Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibilityConverter}}">
+            <TextBlock Text="{Binding StatusMessage}" FontSize="13" Foreground="{StaticResource DangerBrush}" FontWeight="Medium" TextWrapping="Wrap"/>
+        </Border>
 
         <!-- ====================================================
              1. PROMINENT TRIP SEARCH BOX (HERO WIDGET)
@@ -51,8 +67,8 @@
                         <Path Data="{StaticResource IconSearch}" Fill="{StaticResource PrimaryBrush}" Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="Find &amp; Book Your Bus Trip" FontSize="17" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                        <TextBlock Text="Compare express routes across northern and central intercity lines" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock Text="Tìm kiếm &amp; Đặt vé xe khách" FontSize="17" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Tra cứu lịch trình và giá vé của các nhà xe liên tỉnh uy tín" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
                     </StackPanel>
                 </Grid>
 
@@ -77,12 +93,11 @@
                     <StackPanel Grid.Column="0" Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                             <Path Data="{StaticResource IconPin}" Fill="{StaticResource PrimaryBrush}" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                            <TextBlock Text="Origin (From)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="Điểm đi (Xuất phát)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
                         </StackPanel>
-                        <ComboBox ItemsSource="{Binding ProvinceList}"
-                                  SelectedItem="{Binding Origin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                  Text="{Binding Origin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                  IsEditable="True"
+                        <ComboBox ItemsSource="{Binding Origins}"
+                                  SelectedItem="{Binding Origin, Mode=TwoWay}"
+                                  IsEditable="False"
                                   IsTextSearchEnabled="True"
                                   Height="42"
                                   VerticalContentAlignment="Center"/>
@@ -91,8 +106,8 @@
                     <!-- Swap Button -->
                     <Button Grid.Column="1"
                             Command="{Binding SwapLocationsCommand}"
-                            ToolTip="Swap locations"
-                            Width="38" Height="38"
+                            ToolTip="Đảo chiều điểm đi / điểm đến"
+                            AutomationProperties.Name="Đảo chiều điểm đi và điểm đến"
                             VerticalAlignment="Bottom"
                             Margin="0,0,8,2"
                             Background="{StaticResource SurfaceMutedBrush}"
@@ -115,12 +130,11 @@
                     <StackPanel Grid.Column="2" Margin="0,0,12,0">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                             <Path Data="{StaticResource IconPin}" Fill="{StaticResource AccentBrush}" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                            <TextBlock Text="Destination (To)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="Điểm đến (Nơi đến)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
                         </StackPanel>
-                        <ComboBox ItemsSource="{Binding ProvinceList}"
-                                  SelectedItem="{Binding Destination, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                  Text="{Binding Destination, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                  IsEditable="True"
+                        <ComboBox ItemsSource="{Binding Destinations}"
+                                  SelectedItem="{Binding Destination, Mode=TwoWay}"
+                                  IsEditable="False"
                                   IsTextSearchEnabled="True"
                                   Height="42"
                                   VerticalContentAlignment="Center"/>
@@ -130,9 +144,12 @@
                     <StackPanel Grid.Column="3" Margin="0,0,12,0">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                             <Path Data="{StaticResource IconCalendar}" Fill="{StaticResource TextSecondaryBrush}" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                            <TextBlock Text="Departure Date" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="Ngày khởi hành" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
                         </StackPanel>
+                        <!-- DisplayDateStart stops a past departure being picked at all, instead
+                             of accepting it and failing on submit. -->
                         <DatePicker SelectedDate="{Binding DepartureDate}"
+                                    DisplayDateStart="{Binding MinDepartureDate, Mode=OneTime}"
                                     Height="42"
                                     VerticalContentAlignment="Center"/>
                     </StackPanel>
@@ -141,7 +158,7 @@
                     <StackPanel Grid.Column="4" Margin="0,0,16,0">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                             <Path Data="{StaticResource IconUser}" Fill="{StaticResource TextSecondaryBrush}" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                            <TextBlock Text="Passengers" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="Số hành khách" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
                         </StackPanel>
                         <ComboBox ItemsSource="{Binding PassengerOptions}"
                                   SelectedItem="{Binding SelectedPassengers}"
@@ -154,10 +171,11 @@
                         <Button Style="{StaticResource AccentButtonStyle}"
                                 Command="{Binding SearchCommand}"
                                 Height="42"
+                                IsDefault="True"
                                 Padding="20,0">
                             <StackPanel Orientation="Horizontal">
                                 <Path Data="{StaticResource IconSearch}" Fill="White" Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBlock Text="Search Trips" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Text="Tìm chuyến" FontWeight="Bold" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -189,7 +207,7 @@
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="Total Booked" FontSize="13" Foreground="{StaticResource TextMutedBrush}" FontWeight="SemiBold"/>
                         <TextBlock Text="{Binding TotalTickets}" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,6,0,2"/>
-                        <TextBlock Text="Tickets in system" FontSize="12" Foreground="{StaticResource PrimaryBrush}"/>
+                        <TextBlock Text="Tickets on your account" FontSize="12" Foreground="{StaticResource PrimaryBrush}"/>
                     </StackPanel>
                     <Border Grid.Column="1" Width="44" Height="44" CornerRadius="12" Background="{StaticResource PrimaryLightBrush}" VerticalAlignment="Center">
                         <Path Data="{StaticResource IconTicket}" Fill="{StaticResource PrimaryBrush}" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center"/>
@@ -207,7 +225,7 @@
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="Upcoming Journeys" FontSize="13" Foreground="{StaticResource TextMutedBrush}" FontWeight="SemiBold"/>
                         <TextBlock Text="{Binding UpcomingTripsCount}" FontSize="26" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Margin="0,6,0,2"/>
-                        <TextBlock Text="Ready for departure" FontSize="12" Foreground="{StaticResource SuccessBrush}"/>
+                        <TextBlock Text="Active tickets ahead" FontSize="12" Foreground="{StaticResource SuccessBrush}"/>
                     </StackPanel>
                     <Border Grid.Column="1" Width="44" Height="44" CornerRadius="12" Background="#EFF6FF" VerticalAlignment="Center">
                         <Path Data="{StaticResource IconBus}" Fill="{StaticResource PrimaryBrush}" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center"/>
@@ -223,9 +241,9 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="Total Spent" FontSize="13" Foreground="{StaticResource TextMutedBrush}" FontWeight="SemiBold"/>
+                        <TextBlock Text="Total Paid" FontSize="13" Foreground="{StaticResource TextMutedBrush}" FontWeight="SemiBold"/>
                         <TextBlock Text="{Binding TotalSpent}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,8,0,2"/>
-                        <TextBlock Text="Verified payments" FontSize="12" Foreground="{StaticResource SuccessBrush}"/>
+                        <TextBlock Text="Settled payments only" FontSize="12" Foreground="{StaticResource SuccessBrush}"/>
                     </StackPanel>
                     <Border Grid.Column="1" Width="44" Height="44" CornerRadius="12" Background="{StaticResource SuccessLightBrush}" VerticalAlignment="Center">
                         <Path Data="{StaticResource IconCheck}" Fill="{StaticResource SuccessBrush}" Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center"/>
@@ -243,7 +261,7 @@
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="Reward Tier" FontSize="13" Foreground="{StaticResource TextMutedBrush}" FontWeight="SemiBold"/>
                         <TextBlock Text="{Binding RewardTier}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource WarningBrush}" Margin="0,6,0,2"/>
-                        <TextBlock Text="{Binding RewardTierSubtext}" FontSize="12" Foreground="{StaticResource WarningBrush}"/>
+                        <TextBlock Text="{Binding RewardTierSubtext}" FontSize="12" Foreground="{StaticResource WarningBrush}" TextWrapping="Wrap"/>
                     </StackPanel>
                     <Border Grid.Column="1" Width="44" Height="44" CornerRadius="12" Background="{StaticResource WarningLightBrush}" VerticalAlignment="Center">
                         <Path Data="{StaticResource IconStar}" Fill="{StaticResource WarningBrush}" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center"/>
@@ -261,20 +279,24 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Popular Express Routes"
+                <TextBlock Text="Các tuyến xe khách phổ biến"
                            FontSize="18"
                            FontWeight="Bold"
                            Foreground="{StaticResource TextPrimaryBrush}"/>
-                <TextBlock Text="Fastest direct journeys between major transit hubs"
+                <TextBlock Text="Hành trình thuận tiện kết nối các tỉnh thành trọng điểm"
                            FontSize="13"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            Margin="0,2,0,0"/>
             </StackPanel>
-            <Button Grid.Column="1"
-                    Content="Explore All Schedules"
-                    Style="{StaticResource GhostButtonStyle}"
-                    Command="{Binding SearchCommand}"
-                    VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Xem tất cả lịch trình"
+                        Style="{StaticResource GhostButtonStyle}"
+                        Command="{Binding SearchCommand}"/>
+                <Button Content="Làm mới"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Command="{Binding RefreshCommand}"
+                        Margin="10,0,0,0"/>
+            </StackPanel>
         </Grid>
 
         <ItemsControl ItemsSource="{Binding PopularRoutes}">
@@ -285,33 +307,51 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Border Style="{StaticResource CardStyle}" Margin="4,0,4,8" Padding="18">
+                    <Border Style="{StaticResource CardStyle}" Margin="4,0,4,12" Padding="16">
                         <StackPanel>
-                            <!-- Route Tag -->
-                            <Border Background="{StaticResource PrimaryLightBrush}"
-                                    CornerRadius="6"
-                                    Padding="8,3"
+                            <!-- 1. Logo nha xe - Ten nha xe -->
+                            <Button Command="{Binding DataContext.ViewCompanyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"
+                                    Style="{StaticResource GhostButtonStyle}"
+                                    Padding="0"
                                     HorizontalAlignment="Left"
-                                    Margin="0,0,0,10">
-                                <TextBlock Text="{Binding Tag}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}"/>
-                            </Border>
+                                    Margin="0,0,0,10"
+                                    ToolTip="Nhấn để xem thông tin chi tiết nhà xe">
+                                <StackPanel Orientation="Horizontal">
+                                    <!-- Logo nhà xe -->
+                                    <Border Width="32" Height="32" CornerRadius="8" Background="{StaticResource PrimaryLightBrush}" Margin="0,0,8,0">
+                                        <TextBlock Text="{Binding LogoText}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <!-- Tên nhà xe -->
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding CompanyName}" FontSize="13.5" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <TextBlock Text="Xem chi tiết nhà xe →" FontSize="10" Foreground="{StaticResource PrimaryBrush}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Button>
 
-                            <!-- Route Names -->
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="{Binding From}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <!-- 2. Tuyến đường -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <TextBlock Text="{Binding From}" FontSize="14.5" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
                                 <Path Data="{StaticResource IconArrowRight}" Fill="{StaticResource PrimaryBrush}" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="6,0"/>
-                                <TextBlock Text="{Binding To}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding To}" FontSize="14.5" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
                             </StackPanel>
 
-                            <TextBlock Text="{Binding Duration}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,12"/>
+                            <!-- 3. Điểm dừng trên đường -->
+                            <TextBlock Text="{Binding StopsSummary}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="0,0,0,8"
+                                       ToolTip="{Binding StopsSummary}"/>
 
                             <!-- Price and Book CTA -->
-                            <Grid>
+                            <Grid Margin="0,4,0,0">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="From" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock Text="{Binding Price}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                                    <TextBlock Text="Giá chỉ từ" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}"/>
+                                    <TextBlock Text="{Binding Price}" FontSize="14.5" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
                                 </StackPanel>
-                                <Button Content="Book"
+                                <Button Content="Đặt vé"
                                         Style="{StaticResource AccentButtonStyle}"
                                         HorizontalAlignment="Right"
                                         Padding="14,6"
@@ -324,5 +364,23 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
+
+        <!-- Empty state when no route has any scheduled departure yet -->
+        <Border Style="{StaticResource CardStyle}"
+                Padding="32,28"
+                Visibility="{Binding HasNoPopularRoutes, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="Chưa có chuyến xe nào"
+                           FontSize="16"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center"
+                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="Lịch trình chuyến xe sẽ hiển thị tại đây ngay khi các nhà xe công bố giờ xuất bến."
+                           FontSize="13"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,6,0,0"/>
+            </StackPanel>
+        </Border>
     </StackPanel>
 </UserControl>

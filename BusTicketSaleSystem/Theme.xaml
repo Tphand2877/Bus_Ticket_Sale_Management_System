@@ -1,17 +1,38 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
                     xmlns:common="clr-namespace:BusTicketSaleSystem.Common">
 
     <!-- ====================================================
          CONVERTERS
          ==================================================== -->
-    <common:EqualityToBooleanConverter x:Key="EqualityToBooleanConverter"/>
+    <common:TicketStatusToDisplayConverter x:Key="TicketStatusToDisplay"/>
+    <common:PaymentStatusToDisplayConverter x:Key="PaymentStatusToDisplay"/>
     <common:TabActiveBrushConverter x:Key="TabActiveBrushConverter"/>
     <common:TabActiveTextBrushConverter x:Key="TabActiveTextBrushConverter"/>
     <common:BooleanToVisibilityInvertedConverter x:Key="BooleanToVisibilityInvertedConverter"/>
     <common:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
     <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    <common:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+    <common:TicketStatusToBrushConverter x:Key="TicketStatusToBrush"/>
+    <common:NotificationKindToBrushConverter x:Key="NotificationKindToBrush"/>
+    <common:NotificationKindToGlyphConverter x:Key="NotificationKindToGlyph"/>
 
+    <!-- ====================================================
+         KEYBOARD FOCUS RING
+         A focus-visible affordance applied by every button style below: without it a
+         keyboard-only user has no idea which control Tab has landed on.
+         ==================================================== -->
+    <Color x:Key="FocusRingColor">#2563EB</Color>
+    <SolidColorBrush x:Key="FocusRingBrush" Color="{StaticResource FocusRingColor}" po:Freeze="True"/>
+
+    <!-- Implicit Button defaults: apply to every Button regardless of the explicit Style it picks,
+         because BasedOn is not used anywhere in this file. Without ShowOnDisabled, a tooltip that
+         explains WHY a button is disabled is silently suppressed by WPF. -->
+    <Style TargetType="Button">
+        <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+        <Setter Property="ToolTipService.InitialShowDelay" Value="350"/>
+    </Style>
     <!-- ====================================================
          COLOR PALETTE & BRUSHES (UI/UX Pro Max Design System)
          ==================================================== -->
@@ -67,6 +88,12 @@
     <SolidColorBrush x:Key="PrimaryLightBrush" Color="{StaticResource PrimaryLightColor}"/>
     <SolidColorBrush x:Key="PrimaryTintBrush" Color="{StaticResource PrimaryTintColor}"/>
 
+    <LinearGradientBrush x:Key="PrimaryGradientBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#0F4C81" Offset="0.0"/>
+        <GradientStop Color="#1E3A8A" Offset="0.5"/>
+        <GradientStop Color="#2563EB" Offset="1.0"/>
+    </LinearGradientBrush>
+
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
     <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHoverColor}"/>
     <SolidColorBrush x:Key="AccentPressedBrush" Color="{StaticResource AccentPressedColor}"/>
@@ -111,6 +138,7 @@
 
     <!-- Professional Subtle Shadows -->
     <DropShadowEffect x:Key="CardShadow"
+                      po:Freeze="True"
                       BlurRadius="14"
                       ShadowDepth="2"
                       Direction="270"
@@ -118,6 +146,7 @@
                       Opacity="0.05"/>
 
     <DropShadowEffect x:Key="ElevatedShadow"
+                      po:Freeze="True"
                       BlurRadius="22"
                       ShadowDepth="5"
                       Direction="270"
@@ -125,6 +154,7 @@
                       Opacity="0.08"/>
 
     <DropShadowEffect x:Key="AccentGlowShadow"
+                      po:Freeze="True"
                       BlurRadius="12"
                       ShadowDepth="2"
                       Direction="270"
@@ -281,6 +311,11 @@
                             <Setter TargetName="border" Property="Opacity" Value="0.5"/>
                             <Setter Property="Cursor" Value="No"/>
                         </Trigger>
+                        <!-- Focus-visible: keyboard users must see where Tab landed. -->
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource FocusRingBrush}"/>
+                            <Setter TargetName="border" Property="BorderThickness" Value="2"/>
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -319,6 +354,10 @@
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.5"/>
                             <Setter Property="Cursor" Value="No"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource FocusRingBrush}"/>
+                            <Setter TargetName="border" Property="BorderThickness" Value="2"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -362,6 +401,10 @@
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.5"/>
                         </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource FocusRingBrush}"/>
+                            <Setter TargetName="border" Property="BorderThickness" Value="2"/>
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -392,6 +435,14 @@
                             <Setter TargetName="border" Property="Background" Value="{StaticResource SurfaceMutedBrush}"/>
                             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                         </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource FocusRingBrush}"/>
+                            <Setter TargetName="border" Property="BorderThickness" Value="2"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Opacity" Value="0.45"/>
+                            <Setter Property="Cursor" Value="No"/>
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -420,6 +471,14 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{StaticResource DangerHoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource FocusRingBrush}"/>
+                            <Setter TargetName="border" Property="BorderThickness" Value="2"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Opacity" Value="0.45"/>
+                            <Setter Property="Cursor" Value="No"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -456,6 +515,14 @@
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="border" Property="Background" Value="#FECACA"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource FocusRingBrush}"/>
+                            <Setter TargetName="border" Property="BorderThickness" Value="2"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Opacity" Value="0.45"/>
+                            <Setter Property="Cursor" Value="No"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -497,6 +564,10 @@
                             <Setter TargetName="navBorder" Property="Background" Value="{StaticResource SidebarItemActiveBrush}"/>
                             <Setter Property="Foreground" Value="White"/>
                         </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="navBorder" Property="BorderBrush" Value="{StaticResource FocusRingBrush}"/>
+                            <Setter TargetName="navBorder" Property="BorderThickness" Value="2"/>
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -534,6 +605,10 @@
                             <Setter TargetName="border" Property="BorderThickness" Value="1.5"/>
                             <Setter TargetName="border" Property="Background" Value="White"/>
                         </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Background" Value="{StaticResource SurfaceMutedBrush}"/>
+                            <Setter TargetName="border" Property="Opacity" Value="0.7"/>
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -566,6 +641,10 @@
                         <Trigger Property="IsFocused" Value="True">
                             <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
                             <Setter TargetName="border" Property="BorderThickness" Value="1.5"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Background" Value="{StaticResource SurfaceMutedBrush}"/>
+                            <Setter TargetName="border" Property="Opacity" Value="0.7"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -637,6 +716,10 @@
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{StaticResource PrimaryTintBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource FocusRingBrush}"/>
+                            <Setter TargetName="border" Property="BorderThickness" Value="2"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

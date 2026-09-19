@@ -1,0 +1,157 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- App & General -->
+    <sys:String x:Key="AppTitle">OmniBus Express - Hệ thống Đặt vé xe khách</sys:String>
+    <sys:String x:Key="Portal">Hệ thống</sys:String>
+    <sys:String x:Key="QuickBookButton">+ Đặt vé ngay</sys:String>
+    <sys:String x:Key="Refresh">Làm mới</sys:String>
+    <sys:String x:Key="Back">Quay lại</sys:String>
+    <sys:String x:Key="Save">Lưu thay đổi</sys:String>
+    <sys:String x:Key="Cancel">Hủy bỏ</sys:String>
+    <sys:String x:Key="Delete">Xóa</sys:String>
+    <sys:String x:Key="Edit">Chỉnh sửa</sys:String>
+    <sys:String x:Key="Confirm">Xác nhận</sys:String>
+    <sys:String x:Key="Close">Đóng</sys:String>
+    <sys:String x:Key="Search">Tìm kiếm</sys:String>
+    <sys:String x:Key="All">Tất cả</sys:String>
+    <sys:String x:Key="Date">Ngày</sys:String>
+    <sys:String x:Key="Status">Trạng thái</sys:String>
+    <sys:String x:Key="Price">Giá vé</sys:String>
+
+    <!-- Language Info -->
+    <sys:String x:Key="Language">Ngôn ngữ</sys:String>
+    <sys:String x:Key="LanguageVi">Tiếng Việt</sys:String>
+    <sys:String x:Key="LanguageEn">English</sys:String>
+    <sys:String x:Key="LanguageSwitchPrompt">Đổi ngôn ngữ</sys:String>
+    <sys:String x:Key="LanguageSettingsTitle">Cài đặt ngôn ngữ hiển thị</sys:String>
+    <sys:String x:Key="LanguageSettingsDesc">Chọn ngôn ngữ hiển thị cho toàn bộ giao diện của hệ thống (Tiếng Việt hoặc English).</sys:String>
+    <sys:String x:Key="LanguageCurrent">Ngôn ngữ hiện tại: Tiếng Việt</sys:String>
+
+    <!-- User Navigation Menu -->
+    <sys:String x:Key="MenuMain">MENU CHÍNH</sys:String>
+    <sys:String x:Key="NavOverview">Tổng quan</sys:String>
+    <sys:String x:Key="NavBooking">Đặt vé xe</sys:String>
+    <sys:String x:Key="NavMyTickets">Vé của tôi</sys:String>
+    <sys:String x:Key="NavHistory">Lịch sử chuyến</sys:String>
+    <sys:String x:Key="NavProfile">Hồ sơ tài khoản</sys:String>
+    <sys:String x:Key="NavLogout">Đăng xuất</sys:String>
+    <sys:String x:Key="NavLogoutTooltip">Đăng xuất khỏi hệ thống</sys:String>
+
+    <!-- Admin Navigation Menu -->
+    <sys:String x:Key="AdminNavDashboard">Tổng quan</sys:String>
+    <sys:String x:Key="AdminNavRoutes">Tuyến đường</sys:String>
+    <sys:String x:Key="AdminNavBuses">Đội xe &amp; Nhà xe</sys:String>
+    <sys:String x:Key="AdminNavTrips">Lịch trình chuyến</sys:String>
+    <sys:String x:Key="AdminNavPayments">Thanh toán</sys:String>
+    <sys:String x:Key="AdminNavReports">Báo cáo doanh thu</sys:String>
+    <sys:String x:Key="AdminNavAccounts">Quản lý tài khoản</sys:String>
+    <sys:String x:Key="AdminNavLogout">Đăng xuất</sys:String>
+    <sys:String x:Key="AdminMode">Chế độ Quản trị</sys:String>
+    <sys:String x:Key="AdminRole">Quản trị viên</sys:String>
+
+    <!-- Auth / Login -->
+    <sys:String x:Key="LoginTitle">Đăng nhập</sys:String>
+    <sys:String x:Key="LoginSubtitle">Nhập thông tin tài khoản của bạn để tiếp tục</sys:String>
+    <sys:String x:Key="LoginUsername">Tên đăng nhập hoặc Email</sys:String>
+    <sys:String x:Key="LoginPassword">Mật khẩu</sys:String>
+    <sys:String x:Key="LoginButton">Đăng nhập vào tài khoản</sys:String>
+    <sys:String x:Key="LoginDivider">HOẶC</sys:String>
+    <sys:String x:Key="LoginCreateAccount">Tạo tài khoản mới</sys:String>
+    <sys:String x:Key="LoginHeroTitle">Hành trình của bạn bắt đầu tại đây.</sys:String>
+    <sys:String x:Key="LoginHeroSubtitle">Hệ thống đặt vé xe khách liên tỉnh nhanh chóng, tiện lợi và an toàn.</sys:String>
+    <sys:String x:Key="LoginFeature1">Chọn chỗ ngồi trực quan theo sơ đồ xe</sys:String>
+    <sys:String x:Key="LoginFeature2">Xuất vé điện tử và mã QR lên xe tức thì</sys:String>
+    <sys:String x:Key="LoginFeature3">Lịch trình chuẩn xác và giá vé niêm yết cố định</sys:String>
+    <sys:String x:Key="LoginSecurityBadge">Bảo mật tài khoản mã hóa 256-bit</sys:String>
+
+    <!-- Home Screen -->
+    <sys:String x:Key="HomeWelcome">Chào mừng trở lại, </sys:String>
+    <sys:String x:Key="HomeWelcomeSubtitle">Tìm kiếm chuyến xe, chọn ghế ngồi ưng ý và quản lý vé đã đặt dễ dàng.</sys:String>
+    <sys:String x:Key="HomeViewTickets">Xem vé của tôi</sys:String>
+    <sys:String x:Key="HomeSearchTitle">Tìm kiếm &amp; Đặt vé xe khách</sys:String>
+    <sys:String x:Key="HomeSearchSubtitle">Tra cứu lịch trình và giá vé của các nhà xe liên tỉnh uy tín</sys:String>
+    <sys:String x:Key="HomeOrigin">Điểm đi (Xuất phát)</sys:String>
+    <sys:String x:Key="HomeDestination">Điểm đến (Nơi đến)</sys:String>
+    <sys:String x:Key="HomeDepartureDate">Ngày khởi hành</sys:String>
+    <sys:String x:Key="HomePassengers">Số hành khách</sys:String>
+    <sys:String x:Key="HomeSearchButton">Tìm chuyến</sys:String>
+    <sys:String x:Key="HomeSwapTooltip">Đảo chiều điểm đi / điểm đến</sys:String>
+    <sys:String x:Key="HomePopularRoutes">Các tuyến xe khách phổ biến</sys:String>
+    <sys:String x:Key="HomePopularSubtitle">Hành trình thuận tiện kết nối các tỉnh thành trọng điểm</sys:String>
+    <sys:String x:Key="HomeExploreAll">Xem tất cả lịch trình</sys:String>
+    <sys:String x:Key="HomePriceFrom">Giá chỉ từ</sys:String>
+    <sys:String x:Key="HomeBookNow">Đặt vé</sys:String>
+    <sys:String x:Key="HomeNoTripsTitle">Chưa có chuyến xe nào</sys:String>
+    <sys:String x:Key="HomeNoTripsDesc">Lịch trình chuyến xe sẽ hiển thị tại đây ngay khi các nhà xe công bố giờ xuất bến.</sys:String>
+
+    <!-- Booking Screen -->
+    <sys:String x:Key="BookingTitle">Đặt vé xe khách trực tuyến</sys:String>
+    <sys:String x:Key="BookingSubtitle">Tìm kiếm lịch trình xuất bến và chọn nhà xe ưng ý cho chuyến đi của bạn.</sys:String>
+    <sys:String x:Key="BookingBack">← Về trang chủ</sys:String>
+    <sys:String x:Key="BookingMinPriceLabel">Giá vé thấp nhất</sys:String>
+    <sys:String x:Key="BookingSelectCompany">Chọn nhà xe →</sys:String>
+    <sys:String x:Key="BookingNoCompaniesTitle">Không tìm thấy nhà xe phù hợp</sys:String>
+    <sys:String x:Key="BookingNoCompaniesDesc">Không có nhà xe nào hoạt động theo lộ trình hoặc ngày đã chọn. Thử xem tất cả các nhà xe đang hoạt động.</sys:String>
+    <sys:String x:Key="BookingShowAll">Xem tất cả nhà xe</sys:String>
+
+    <!-- My Tickets Screen -->
+    <sys:String x:Key="MyTicketsTitle">Vé xe của tôi</sys:String>
+    <sys:String x:Key="MyTicketsSubtitle">Quản lý và xem lại thông tin các vé xe đang hoạt động của bạn.</sys:String>
+    <sys:String x:Key="MyTicketsBookNew">+ Đặt vé mới</sys:String>
+    <sys:String x:Key="MyTicketsViewEticket">Xem vé điện tử</sys:String>
+    <sys:String x:Key="MyTicketsPending">Chờ thanh toán</sys:String>
+    <sys:String x:Key="MyTicketsCancel">Hủy giữ chỗ</sys:String>
+    <sys:String x:Key="MyTicketsCancelTooltip">Khả dụng khi vé đang được giữ chỗ và chưa thanh toán.</sys:String>
+    <sys:String x:Key="MyTicketsRefund">Yêu cầu hoàn vé</sys:String>
+    <sys:String x:Key="MyTicketsRefundTooltip">Khả dụng cho vé đã thanh toán trước giờ khởi hành. Nhân viên sẽ hỗ trợ hoàn tiền.</sys:String>
+    <sys:String x:Key="MyTicketsNoTicketsTitle">Chưa có vé nào đang hoạt động</sys:String>
+    <sys:String x:Key="MyTicketsNoTicketsDesc">Bạn chưa có hành trình nào sắp tới. Đặt vé ngay để bắt đầu chuyến đi.</sys:String>
+    <sys:String x:Key="MyTicketsBookNow">Đặt vé ngay</sys:String>
+
+    <!-- History Screen -->
+    <sys:String x:Key="HistoryTitle">Lịch sử chuyến đi</sys:String>
+    <sys:String x:Key="HistorySubtitle">Xem lại các chuyến đi trước đây và dễ dàng đặt lại các tuyến quen thuộc.</sys:String>
+    <sys:String x:Key="HistoryNoHistoryTitle">Chưa có lịch sử chuyến đi</sys:String>
+    <sys:String x:Key="HistoryNoHistoryDesc">Các chuyến đi đã hoàn thành hoặc đã hủy sẽ được ghi nhận tại đây.</sys:String>
+    <sys:String x:Key="HistoryFindTrip">Tìm chuyến xe mới</sys:String>
+
+    <!-- Profile Screen -->
+    <sys:String x:Key="ProfileTitle">Hồ sơ &amp; Bảo mật</sys:String>
+    <sys:String x:Key="ProfileSubtitle">Quản lý mật khẩu, cài đặt bảo mật và thông tin cá nhân của bạn.</sys:String>
+    <sys:String x:Key="ProfilePasswordTitle">Mật khẩu &amp; Bảo mật</sys:String>
+    <sys:String x:Key="ProfilePasswordSubtitle">Thay đổi mật khẩu định kỳ để giữ an toàn cho tài khoản.</sys:String>
+    <sys:String x:Key="ProfileCurrentPassword">Mật khẩu hiện tại</sys:String>
+    <sys:String x:Key="ProfileNewPassword">Mật khẩu mới</sys:String>
+    <sys:String x:Key="ProfileConfirmPassword">Xác nhận mật khẩu mới</sys:String>
+
+    <!-- Destructive-action confirmation gate ({0} placeholders filled in the ViewModel) -->
+    <sys:String x:Key="ConfirmCancelPrompt">Hủy vé {0} và trả lại (các) ghế {1}? Ghế sẽ được mở bán lại ngay và không thể hoàn tác.</sys:String>
+    <sys:String x:Key="ConfirmRefundPrompt">Yêu cầu hoàn tiền cho vé {0} ({1})? Vé sẽ không còn giá trị sử dụng và nhân viên sẽ xử lý hoàn tiền thủ công.</sys:String>
+    <sys:String x:Key="ConfirmCancelAction">Đồng ý, hủy vé</sys:String>
+    <sys:String x:Key="ConfirmRefundAction">Đồng ý, yêu cầu hoàn tiền</sys:String>
+    <sys:String x:Key="ConfirmKeepTicket">Giữ lại vé</sys:String>
+    <sys:String x:Key="ConfirmGeneric">Xác nhận</sys:String>
+
+    <!-- Transient outcome messages -->
+    <sys:String x:Key="ToastTicketCancelled">Vé {0} đã được hủy và chuyển vào lịch sử chuyến đi của bạn.</sys:String>
+    <sys:String x:Key="ToastRefundRequested">Đã gửi yêu cầu hoàn tiền cho vé {0}. Nhân viên sẽ xem xét và xử lý trong thời gian sớm nhất.</sys:String>
+    <sys:String x:Key="ToastProfileUpdated">Đã cập nhật thông tin cá nhân của bạn.</sys:String>
+    <sys:String x:Key="ToastPasswordChanged">Đã đổi mật khẩu thành công.</sys:String>
+    <sys:String x:Key="ToastCashReserved">Đã giữ (các) ghế {0}. Vui lòng trả tiền cho tài xế khi lên xe; vé ở trạng thái chờ cho đến khi nhân viên xác nhận.</sys:String>
+    <sys:String x:Key="ToastTransferSubmitted">Đã ghi nhận chuyển khoản cho vé {0}. Nhân viên sẽ xác nhận; vé được giữ đến {1}.</sys:String>
+    <sys:String x:Key="ToastTransferNotSubmitted">Chưa ghi nhận chuyển khoản. Vé {0} vẫn ở trạng thái chờ thanh toán đến {1}.</sys:String>
+    <sys:String x:Key="ToastVnPayConfirmed">VNPay đã xác nhận thanh toán cho vé {0}.</sys:String>
+    <sys:String x:Key="ToastVnPayPending">VNPay chưa xác nhận thanh toán cho vé {0}. Vé được giữ đến {1}.</sys:String>
+    <sys:String x:Key="ToastBookingFailed">Không thể hoàn tất đặt vé. Vui lòng thử lại.</sys:String>
+    <sys:String x:Key="ToastDismiss">Đóng thông báo</sys:String>
+    <sys:String x:Key="ProfileChangePasswordButton">Đổi mật khẩu</sys:String>
+    <sys:String x:Key="ProfilePersonalInfoTitle">Thông tin cá nhân</sys:String>
+    <sys:String x:Key="ProfilePersonalInfoSubtitle">Cập nhật thông tin cá nhân liên kết với tài khoản của bạn.</sys:String>
+    <sys:String x:Key="ProfileFullName">Họ và tên</sys:String>
+    <sys:String x:Key="ProfilePhoneNumber">Số điện thoại</sys:String>
+    <sys:String x:Key="ProfileEmail">Địa chỉ email</sys:String>
+    <sys:String x:Key="ProfileSavePersonalButton">Lưu thông tin cá nhân</sys:String>
+
+</ResourceDictionary>

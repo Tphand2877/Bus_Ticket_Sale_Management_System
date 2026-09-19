@@ -24,16 +24,33 @@ namespace BusTicketSaleSystem.ViewModels
             set => SetProperty(ref _activeTab, value);
         }
 
-        // Current user profile info
-        public string UserName { get; set; } = CurrentUser.Account?.Username ?? "Guest";
-        public string UserEmail { get; set; } = CurrentUser.Account?.Email ?? string.Empty;
-        public string UserRole { get; set; } = CurrentUser.Account?.Role ?? "Customer";
-        public string UserInitials { get; set; } = GetInitials(CurrentUser.Account?.Username);
-
-        private static string GetInitials(string? username)
+        // Current user profile info, read live so a profile edit is reflected immediately.
+        public string UserName => CurrentUser.Account?.FullName ?? CurrentUser.Account?.Username ?? "Guest";
+        public string UserRole => CurrentUser.Account?.Role ?? "Customer";
+        public string UserInitials => GetInitials(CurrentUser.Account?.FullName ?? CurrentUser.Account?.Username);
+        public string CurrentLanguageCode => LocalizationService.Instance.IsVietnamese ? "VI" : "EN";
+        public string CurrentLanguageDisplay => LocalizationService.Instance.IsVietnamese ? "🇻🇳 Tiếng Việt" : "🇬🇧 English";
+        public string CurrentLocation
         {
-            if (string.IsNullOrWhiteSpace(username)) return "GU";
-            return username.Length == 1 ? username.ToUpperInvariant() : username[..2].ToUpperInvariant();
+            get => LocationService.Instance.CurrentLocation;
+            set
+            {
+                if (LocationService.Instance.SetUserLocation(value))
+                {
+                    OnPropertyChanged(nameof(CurrentLocation));
+                    OnPropertyChanged(nameof(LocationDisplay));
+                }
+            }
+        }
+        public string LocationDisplay => $"📍 {CurrentLocation}";
+        public IReadOnlyList<string> AvailableLocations => LocationService.Instance.AvailableLocations;
+        private static string GetInitials(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "GU";
+            var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return "GU";
+            if (parts.Length >= 2) return $"{char.ToUpperInvariant(parts[0][0])}{char.ToUpperInvariant(parts[^1][0])}";
+            return parts[0].Length == 1 ? parts[0].ToUpperInvariant() : parts[0][..2].ToUpperInvariant();
         }
 
         // Navigation Commands
@@ -46,10 +63,28 @@ namespace BusTicketSaleSystem.ViewModels
         // Event to request logout and switch back to LoginWindow
         public event EventHandler? RequestLogout;
         public ICommand LogoutCommand { get; }
+        public ICommand ToggleLanguageCommand { get; }
+        public ICommand SelectLocationCommand { get; }
 
         public MainViewModel(INavigationService navigationService)
         {
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            SelectLocationCommand = new RelayCommand(p =>
+            {
+                if (p is string loc) CurrentLocation = loc;
+            });
+            LocationService.Instance.LocationChanged += (_, _) =>
+            {
+                OnPropertyChanged(nameof(CurrentLocation));
+                OnPropertyChanged(nameof(LocationDisplay));
+            };
+            ToggleLanguageCommand = new RelayCommand(() => LocalizationService.Instance.ToggleLanguage());
+            LocalizationService.Instance.LanguageChanged += _ =>
+            {
+                OnPropertyChanged(nameof(CurrentLanguageCode));
+                OnPropertyChanged(nameof(CurrentLanguageDisplay));
+            };
+
 
             // Listen to NavigationService changes to notify WPF ContentControl
             if (_navigationService is INotifyPropertyChanged notifyNav)
@@ -59,6 +94,9 @@ namespace BusTicketSaleSystem.ViewModels
                     if (args.PropertyName == nameof(INavigationService.CurrentViewModel))
                     {
                         OnPropertyChanged(nameof(CurrentViewModel));
+                        OnPropertyChanged(nameof(UserName));
+                        OnPropertyChanged(nameof(UserRole));
+                        OnPropertyChanged(nameof(UserInitials));
                         UpdateActiveTabFromCurrentViewModel();
                     }
                 };

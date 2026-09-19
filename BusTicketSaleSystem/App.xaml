@@ -9,6 +9,8 @@
             <ResourceDictionary.MergedDictionaries>
                 <!-- Shared Design System / Theme -->
                 <ResourceDictionary Source="Theme.xaml"/>
+                <!-- Localization Strings -->
+                <ResourceDictionary Source="Resources/Strings.vi-VN.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <!-- ====================================================
@@ -50,6 +52,9 @@
             <DataTemplate DataType="{x:Type vm:TicketViewModel}">
                 <views:TicketView />
             </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:BusCompanyDetailViewModel}">
+                <views:BusCompanyDetailView />
+            </DataTemplate>
             <DataTemplate DataType="{x:Type vm:AdminDashboardViewModel}">
                 <views:AdminDashboardView />
             </DataTemplate>
@@ -64,6 +69,12 @@
             </DataTemplate>
             <DataTemplate DataType="{x:Type vm:AdminAccountsViewModel}">
                 <views:AdminAccountsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AdminPaymentsViewModel}">
+                <views:AdminPaymentsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AdminReportsViewModel}">
+                <views:AdminReportsView />
             </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>

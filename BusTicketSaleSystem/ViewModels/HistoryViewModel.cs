@@ -7,30 +7,29 @@ using System.Windows.Input;
 
 namespace BusTicketSaleSystem.ViewModels;
 
-public sealed class HistoryViewModel : ViewModelBase
+public sealed class HistoryViewModel : ViewModelBase, IRefreshable
 {
     private readonly INavigationService _navigationService;
     private string _totalCompletedTripsText = "0 Trips Completed";
     private string _totalDistanceTraveledText = "0 km Traveled";
-    private bool _isBusy;
+    private string _errorMessage = string.Empty;
+    private bool _isLoading;
 
     public ObservableCollection<PastTripItemViewModel> HistoryTrips { get; } = new();
     public string TotalCompletedTripsText { get => _totalCompletedTripsText; private set => SetProperty(ref _totalCompletedTripsText, value); }
     public string TotalDistanceTraveledText { get => _totalDistanceTraveledText; private set => SetProperty(ref _totalDistanceTraveledText, value); }
-    public bool IsBusy
+    public string ErrorMessage { get => _errorMessage; private set => SetProperty(ref _errorMessage, value); }
+    public bool IsLoading
     {
-        get => _isBusy;
+        get => _isLoading;
         private set
         {
-            if (SetProperty(ref _isBusy, value))
-            {
+            if (SetProperty(ref _isLoading, value))
                 OnPropertyChanged(nameof(HasNoHistory));
-                OnPropertyChanged(nameof(HasHistory));
-            }
         }
     }
-    public bool HasHistory => HistoryTrips.Count > 0;
-    public bool HasNoHistory => !IsBusy && HistoryTrips.Count == 0;
+
+    public bool HasNoHistory => !IsLoading && HistoryTrips.Count == 0;
 
     public ICommand BookAgainCommand { get; }
     public ICommand RefreshCommand { get; }
@@ -39,45 +38,40 @@ public sealed class HistoryViewModel : ViewModelBase
     {
         _navigationService = navigationService;
 
-        BookAgainCommand = new RelayCommand(parameter =>
-        {
-            if (parameter is PastTripItemViewModel item && !string.IsNullOrWhiteSpace(item.Origin) && !string.IsNullOrWhiteSpace(item.Destination))
-            {
-                _navigationService.NavigateTo(new BookingViewModel(_navigationService, item.Origin, item.Destination, DateTime.Today.AddDays(1)));
-            }
-            else
-            {
-                _navigationService.NavigateTo<BookingViewModel>();
-            }
-        });
+        BookAgainCommand = new RelayCommand(_ => _navigationService.NavigateTo<BookingViewModel>());
 
-        RefreshCommand = new RelayCommand(async () => await LoadAsync());
-
-        _ = LoadAsync();
+        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
     }
 
-    private async Task LoadAsync()
+    public async Task RefreshAsync()
     {
-        if (CurrentUser.Account is null) return;
-        IsBusy = true;
+        if (CurrentUser.Account is null)
+        {
+            ErrorMessage = "Your session has expired. Please sign in again.";
+            return;
+        }
+
+        IsLoading = true;
+        ErrorMessage = string.Empty;
         try
         {
-            HistoryTrips.Clear();
             var tickets = await DatabaseHelper.GetTicketsAsync(CurrentUser.Account.AccountId, true);
-            foreach (var ticket in tickets)
-            {
-                HistoryTrips.Add(new PastTripItemViewModel(ticket));
-            }
+            HistoryTrips.Clear();
+            foreach (var ticket in tickets) HistoryTrips.Add(new PastTripItemViewModel(ticket));
 
             var (completedCount, totalKm) = await DatabaseHelper.GetHistoryStatsAsync(CurrentUser.Account.AccountId);
-            TotalCompletedTripsText = $"{completedCount} Trips Completed";
+            TotalCompletedTripsText = $"{completedCount:N0} Trips Completed";
             TotalDistanceTraveledText = $"{totalKm:N0} km Traveled";
         }
-        catch { }
+        catch (Exception ex)
+        {
+            LoggerService.LogError("Could not load travel history.", ex);
+            HistoryTrips.Clear();
+            ErrorMessage = "Your travel history could not be loaded from the database.";
+        }
         finally
         {
-            IsBusy = false;
-            OnPropertyChanged(nameof(HasHistory));
+            IsLoading = false;
             OnPropertyChanged(nameof(HasNoHistory));
         }
     }
@@ -93,11 +87,16 @@ public sealed class PastTripItemViewModel : ViewModelBase
     public decimal DistanceKm => _ticket.DistanceKm;
     public string Date => _ticket.DepartureTime.ToString("dd/MM/yyyy");
     public string Time => _ticket.DepartureTime.ToString("HH:mm");
-    public string BusOperator => string.IsNullOrWhiteSpace(_ticket.BusType) ? "OmniBus Express" : _ticket.BusType;
-    public string Seat => _ticket.SeatNumber;
-    public string Fare => $"{_ticket.Price:N0} VND";
+    public string BusType => string.IsNullOrWhiteSpace(_ticket.BusType) ? "Standard coach" : _ticket.BusType;
+    public string Seats => _ticket.SeatNumbers;
+    public int SeatCount => _ticket.SeatCount;
+    public string Fare => $"{_ticket.TotalPrice:N0} VND";
+
+    /// <summary>Raw DB literal; rendered through the TicketStatusToDisplay converter.</summary>
     public string Status => _ticket.Status;
-    public string Rating => _ticket.Status == "Đã hủy" ? "Đã hủy" : "5.0 ★";
+
+    /// <summary>Raw DB literal; rendered through the PaymentStatusToDisplay converter.</summary>
+    public string PaymentStatus => _ticket.PaymentStatus;
 
     public PastTripItemViewModel(TicketDetails ticket) => _ticket = ticket;
 }

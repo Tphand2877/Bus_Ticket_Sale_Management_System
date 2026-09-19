@@ -4,10 +4,6 @@
              xmlns:common="clr-namespace:BusTicketSaleSystem.Common"
              FontFamily="{StaticResource AppFont}">
 
-    <UserControl.Resources>
-        <common:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-    </UserControl.Resources>
 
     <StackPanel>
         <!-- Header -->
@@ -18,25 +14,31 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0">
-                <TextBlock Text="My Tickets" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                <TextBlock Text="Manage and review your active bus journey tickets."
+                <TextBlock Text="Vé xe của tôi" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="Quản lý và xem lại thông tin các vé xe đang hoạt động của bạn."
                            FontSize="14"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            Margin="0,4,0,0"/>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="Refresh"
+                <Button Content="Làm mới"
                         Command="{Binding RefreshCommand}"
                         Style="{StaticResource SecondaryButtonStyle}"
                         Margin="0,0,10,0"
                         Padding="14,8"/>
-                <Button Content="+ Book Ticket"
+                <Button Content="+ Đặt vé mới"
                         Command="{Binding BookNewTicketCommand}"
                         Style="{StaticResource PrimaryButtonStyle}"
                         Padding="16,8"/>
             </StackPanel>
         </Grid>
+
+        <ProgressBar Height="4"
+                     Margin="0,0,0,12"
+                     IsIndeterminate="True"
+                     Style="{StaticResource ModernProgressBarStyle}"
+                     Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
         <!-- Status Message Banner -->
         <Border Background="{StaticResource PrimaryLightBrush}"
@@ -46,11 +48,64 @@
                 Padding="14,10"
                 Margin="0,0,0,16"
                 Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibilityConverter}}">
-            <TextBlock Text="{Binding StatusMessage}" FontSize="13" Foreground="{StaticResource PrimaryBrush}" FontWeight="Medium"/>
+            <TextBlock Text="{Binding StatusMessage}" FontSize="13" Foreground="{StaticResource PrimaryBrush}" FontWeight="Medium" TextWrapping="Wrap"/>
+        </Border>
+
+        <!-- Error Banner -->
+        <Border Background="{StaticResource DangerLightBrush}"
+                BorderBrush="{StaticResource DangerBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="14,10"
+                Margin="0,0,0,16"
+                Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibilityConverter}}">
+            <TextBlock Text="{Binding ErrorMessage}" FontSize="13" Foreground="{StaticResource DangerBrush}" FontWeight="Medium" TextWrapping="Wrap"/>
+        </Border>
+
+        <!-- Confirmation gate for the two irreversible actions (cancel / refund).
+             Inline rather than a MessageBox, matching the admin delete-confirmation pattern. -->
+        <Border Background="{StaticResource WarningLightBrush}"
+                BorderBrush="{StaticResource WarningBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16,14"
+                Margin="0,0,0,16"
+                Visibility="{Binding IsConfirmingAction, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{Binding ConfirmationPrompt}"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           Foreground="#92400E"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0">
+                    <Button Content="{Binding ConfirmActionLabel}"
+                            Command="{Binding ConfirmPendingActionCommand}"
+                            Style="{StaticResource DangerButtonStyle}"
+                            Height="34" Padding="14,0" Margin="0,0,8,0"/>
+                    <Button Content="{DynamicResource ConfirmKeepTicket}"
+                            Command="{Binding DismissPendingActionCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Height="34" Padding="12,0"
+                            IsCancel="True"/>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- Active Tickets List -->
-        <ItemsControl ItemsSource="{Binding Tickets}">
+        <ItemsControl ItemsSource="{Binding Tickets}"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Border Style="{StaticResource CardStyle}" Padding="20,18" Margin="0,0,0,14">
@@ -65,13 +120,21 @@
                             <!-- Ticket Code & Status -->
                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding TicketCode}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                <Border Background="{StaticResource SuccessLightBrush}"
-                                        CornerRadius="6"
-                                        Padding="8,3"
-                                        HorizontalAlignment="Left"
-                                        Margin="0,6,0,0">
-                                    <TextBlock Text="{Binding Status}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}"/>
-                                </Border>
+                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                    <Border Background="{StaticResource PrimaryLightBrush}"
+                                            CornerRadius="6"
+                                            Padding="8,3"
+                                            Margin="0,0,6,0">
+                                        <TextBlock Text="{Binding Status, Converter={StaticResource TicketStatusToDisplay}}"
+                                                   FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
+                                    </Border>
+                                    <Border Background="{StaticResource SurfaceMutedBrush}"
+                                            CornerRadius="6"
+                                            Padding="8,3">
+                                        <TextBlock Text="{Binding PaymentStatus, Converter={StaticResource PaymentStatusToDisplay}}"
+                                                   FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    </Border>
+                                </StackPanel>
                             </StackPanel>
 
                             <!-- Route & Departure Time -->
@@ -84,28 +147,48 @@
                                     <Path Data="{StaticResource IconClock}" Fill="{StaticResource TextMutedBrush}" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,4,0"/>
                                     <TextBlock Text="{Binding Time}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}"/>
                                 </StackPanel>
-                                <TextBlock Text="{Binding BusOperator}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0"/>
+                                <TextBlock Text="{Binding BusType}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0"/>
                             </StackPanel>
 
-                            <!-- Seat & Price -->
+                            <!-- Seats & Price -->
                             <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="12,0">
-                                <TextBlock Text="{Binding SeatNumber, StringFormat=Ghế: {0}}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding SeatNumbers, StringFormat=Ghế: {0}}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
                                 <TextBlock Text="{Binding Price}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Margin="0,4,0,0"/>
                             </StackPanel>
 
                             <!-- Action Buttons -->
                             <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Content="View E-Ticket"
-                                        Command="{Binding DataContext.ViewDetailsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                        CommandParameter="{Binding}"
-                                        Style="{StaticResource SecondaryButtonStyle}"
-                                        Padding="14,8"
-                                        Margin="0,0,8,0"/>
-                                <Button Content="Hủy vé"
+                            <!-- Paid tickets can open the e-ticket; pending payments keep the card visible but disable this action. -->
+                            <Button Content="Xem vé điện tử"
+                                    Command="{Binding DataContext.ViewDetailsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Padding="14,8"
+                                    Margin="0,0,8,0"
+                                    Visibility="{Binding CanViewETicket, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            <Button Content="Chờ thanh toán"
+                                    IsEnabled="False"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Padding="14,8"
+                                    Margin="0,0,8,0"
+                                    Visibility="{Binding IsPendingPayment, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                <!-- Cancel releases an unpaid reservation -->
+                                <Button Content="Hủy giữ chỗ"
                                         Command="{Binding DataContext.CancelTicketCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         CommandParameter="{Binding}"
                                         Style="{StaticResource DangerOutlineButtonStyle}"
-                                        Padding="12,8"/>
+                                        Padding="12,8"
+                                        Margin="0,0,8,0"
+                                        ToolTip="Khả dụng khi vé đang được giữ chỗ và chưa thanh toán."
+                                        Visibility="{Binding CanCancel, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                <!-- Refund applies to an already settled ticket -->
+                                <Button Content="Yêu cầu hoàn vé"
+                                        Command="{Binding DataContext.RequestRefundCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Style="{StaticResource DangerOutlineButtonStyle}"
+                                        Padding="12,8"
+                                        ToolTip="Khả dụng cho vé đã thanh toán trước giờ khởi hành. Nhân viên sẽ hỗ trợ hoàn tiền."
+                                        Visibility="{Binding CanRequestRefund, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -127,7 +210,7 @@
                            FontWeight="Bold"
                            HorizontalAlignment="Center"
                            Foreground="{StaticResource TextPrimaryBrush}"/>
-                <TextBlock Text="Bạn hiện không có chuyến xe nào sắp khởi hành. Đặt vé ngay để bắt đầu hành trình của bạn!"
+                <TextBlock Text="Bạn chưa có hành trình nào sắp tới. Đặt vé ngay để bắt đầu chuyến đi."
                            FontSize="13"
                            Foreground="{StaticResource TextMutedBrush}"
                            HorizontalAlignment="Center"

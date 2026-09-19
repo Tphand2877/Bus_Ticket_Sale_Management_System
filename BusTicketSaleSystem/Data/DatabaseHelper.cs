@@ -3,38 +3,67 @@ using BusTicketSaleSystem.Services;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace BusTicketSaleSystem.Data;
 
 public static class DatabaseHelper
 {
-    private const int PasswordIterations = 100_000;
+    /// <summary>Current password hash format: <c>PBKDF2-SHA256$iterations$salt$hash</c>.</summary>
+    private const string PasswordHashPrefix = "PBKDF2-SHA256";
+
+    /// <summary>First hashed format ever stored: <c>PBKDF2$iterations$salt$hash</c>.</summary>
+    private const string LegacyPasswordHashPrefix = "PBKDF2";
+
+    private const int PasswordIterations = 310_000;
+    private const int PasswordSaltBytes = 16;
+    private const int PasswordHashBytes = 32;
+
+    private const string InvalidCredentialsMessage = "Incorrect username or password.";
+    private const string DatabaseUnavailableMessage = "Could not connect to the database.";
 
     public static SqlConnection GetConnection() => new(DatabaseOptions.ConnectionString);
-
-    public static bool TestConnection()
-    {
-        try { using var connection = GetConnection(); connection.Open(); return true; }
-        catch (SqlException) { return false; }
-    }
 
     public static async Task<(bool Success, UserSession? Account, string? Error)> AuthenticateAsync(string usernameOrEmail, string password)
     {
         const string sql = "SELECT TOP (1) AccountId, Username, FullName, Email, Phone, Role, PasswordHash FROM Accounts WHERE Username=@Login OR Email=@Login;";
         try
         {
-            await using var connection = GetConnection(); await connection.OpenAsync();
-            await using var command = new SqlCommand(sql, connection); command.Parameters.Add("@Login", SqlDbType.NVarChar, 100).Value = usernameOrEmail;
-            await using var reader = await command.ExecuteReaderAsync();
-            if (!await reader.ReadAsync()) return (false, null, "Tên đăng nhập hoặc mật khẩu không đúng.");
-            var accountId = reader.GetInt32(0); var username = reader.GetString(1); var fullName = reader.GetString(2);
-            var email = reader.IsDBNull(3) ? null : reader.GetString(3); var phone = reader.IsDBNull(4) ? null : reader.GetString(4);
-            var role = reader.IsDBNull(5) ? "Customer" : reader.GetString(5); var storedHash = reader.GetString(6);
-            if (!VerifyPassword(password, storedHash)) return (false, null, "Tên đăng nhập hoặc mật khẩu không đúng.");
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+
+            int accountId;
+            string username, fullName, role, storedHash;
+            string? email, phone;
+            await using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.Add("@Login", SqlDbType.NVarChar, 100).Value = usernameOrEmail;
+                await using var reader = await command.ExecuteReaderAsync();
+                if (!await reader.ReadAsync()) return (false, null, InvalidCredentialsMessage);
+                accountId = reader.GetInt32(0);
+                username = reader.GetString(1);
+                fullName = reader.GetString(2);
+                email = reader.IsDBNull(3) ? null : reader.GetString(3);
+                phone = reader.IsDBNull(4) ? null : reader.GetString(4);
+                role = reader.IsDBNull(5) ? "Customer" : reader.GetString(5);
+                storedHash = reader.GetString(6);
+            }
+
+            if (!VerifyPassword(password, storedHash)) return (false, null, InvalidCredentialsMessage);
+
+            // A successful login is the only moment the plaintext is available,
+            // so it is also the only chance to migrate an outdated hash format.
+            if (IsOutdatedHashFormat(storedHash))
+                await UpgradeStoredHashAsync(connection, accountId, password, storedHash);
+
             return (true, new UserSession(accountId, username, fullName, email, phone, role), null);
         }
-        catch (SqlException) { return (false, null, "Không thể kết nối tới cơ sở dữ liệu."); }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not authenticate '{usernameOrEmail}'.", ex);
+            return (false, null, DatabaseUnavailableMessage);
+        }
     }
 
     public static async Task<(bool Success, string? Error)> CreateAccountAsync(string username, string password, string fullName, string? phone, string? email)
@@ -49,13 +78,20 @@ public static class DatabaseHelper
             command.Parameters.Add("@FullName", SqlDbType.NVarChar, 100).Value = fullName; command.Parameters.Add("@Phone", SqlDbType.NVarChar, 20).Value = (object?)phone ?? DBNull.Value; command.Parameters.Add("@Email", SqlDbType.NVarChar, 100).Value = (object?)email ?? DBNull.Value;
             await command.ExecuteNonQueryAsync(); return (true, null);
         }
-        catch (SqlException ex) when (ex.Number is 2601 or 2627) { return (false, "Username hoặc email này đã tồn tại."); }
-        catch (SqlException) { return (false, "Không thể tạo tài khoản."); }
+        catch (SqlException ex) when (ex.Number is 2601 or 2627) { return (false, "That username or email is already registered."); }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not create the account '{username}'.", ex);
+            return (false, "Could not create the account. Please try again.");
+        }
     }
+
     public static async Task<(bool Success, UserSession? Account, string? Error)> UpdateProfileAsync(UserSession account, string fullName, string? email, string? phone)
     {
         var validationError = string.Empty;
-        if (string.IsNullOrWhiteSpace(fullName) || fullName.Length > 100 || !ValidateContact(email, phone, out validationError))
+        if (string.IsNullOrWhiteSpace(fullName) || fullName.Length > 100)
+            return (false, null, "Full name must be 1-100 characters.");
+        if (!ValidateContact(email, phone, out validationError))
             return (false, null, validationError);
         const string sql = "UPDATE Accounts SET FullName=@FullName, Email=@Email, Phone=@Phone WHERE AccountId=@AccountId;";
         try
@@ -64,27 +100,49 @@ public static class DatabaseHelper
             command.Parameters.Add("@FullName", SqlDbType.NVarChar, 100).Value = fullName; command.Parameters.Add("@Email", SqlDbType.NVarChar, 100).Value = (object?)email ?? DBNull.Value; command.Parameters.Add("@Phone", SqlDbType.NVarChar, 20).Value = (object?)phone ?? DBNull.Value; command.Parameters.Add("@AccountId", SqlDbType.Int).Value = account.AccountId;
             await command.ExecuteNonQueryAsync(); return (true, account with { FullName = fullName, Email = email, Phone = phone }, null);
         }
-        catch (SqlException ex) when (ex.Number is 2601 or 2627) { return (false, null, "Email này đã được sử dụng."); }
-        catch (SqlException) { return (false, null, "Không thể cập nhật thông tin tài khoản."); }
+        catch (SqlException ex) when (ex.Number is 2601 or 2627) { return (false, null, "That email address is already in use."); }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not update the profile of account {account.AccountId}.", ex);
+            return (false, null, "Could not update the account details.");
+        }
     }
 
     public static async Task<(bool Success, string? Error)> ChangePasswordAsync(int accountId, string currentPassword, string newPassword)
     {
         if (!ValidatePassword(newPassword, out var validationError))
             return (false, validationError);
-        const string select = "SELECT PasswordHash FROM Accounts WHERE AccountId=@AccountId;"; const string update = "UPDATE Accounts SET PasswordHash=@PasswordHash WHERE AccountId=@AccountId;";
+        const string select = "SELECT PasswordHash FROM Accounts WHERE AccountId=@AccountId;";
+        const string update = "UPDATE Accounts SET PasswordHash=@PasswordHash WHERE AccountId=@AccountId;";
         try
         {
             await using var connection = GetConnection(); await connection.OpenAsync(); await using var selectCommand = new SqlCommand(select, connection); selectCommand.Parameters.Add("@AccountId", SqlDbType.Int).Value = accountId;
-            var stored = await selectCommand.ExecuteScalarAsync() as string; if (stored is null || !VerifyPassword(currentPassword, stored)) return (false, "Mật khẩu hiện tại không đúng.");
+            var stored = await selectCommand.ExecuteScalarAsync() as string;
+            if (stored is null || !VerifyPassword(currentPassword, stored)) return (false, "The current password is incorrect.");
             await using var updateCommand = new SqlCommand(update, connection); updateCommand.Parameters.Add("@PasswordHash", SqlDbType.NVarChar, 255).Value = HashPassword(newPassword); updateCommand.Parameters.Add("@AccountId", SqlDbType.Int).Value = accountId; await updateCommand.ExecuteNonQueryAsync(); return (true, null);
         }
-        catch (SqlException) { return (false, "Không thể đổi mật khẩu."); }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not change the password of account {accountId}.", ex);
+            return (false, "Could not change the password.");
+        }
     }
 
+    /// <summary>
+    /// Dashboard counters. <c>TotalTickets</c> includes reservations;
+    /// <c>TotalSpent</c> is settled money only, so pending, expired or refunded
+    /// payments contribute nothing to that amount. <c>UpcomingTrips</c> counts
+    /// live tickets on trips that have not left.
+    /// </summary>
     public static async Task<(int TotalTickets, int UpcomingTrips, decimal TotalSpent)> GetDashboardStatsAsync(int accountId)
     {
-        const string sql = "SELECT COUNT(*), COALESCE(SUM(CASE WHEN Status IN (N'Đã đặt',N'Đã thanh toán') THEN 1 ELSE 0 END),0), COALESCE(SUM(CASE WHEN Status IN (N'Đã đặt',N'Đã thanh toán') THEN Price ELSE 0 END),0) FROM Tickets WHERE AccountId=@AccountId;";
+        const string sql = @"
+SELECT COUNT(*),
+       COALESCE(SUM(CASE WHEN tk.Status IN (N'Đã đặt', N'Đã thanh toán') AND tr.DepartureTime >= SYSUTCDATETIME() THEN 1 ELSE 0 END), 0),
+       COALESCE(SUM(CASE WHEN tk.PaymentStatus = N'Đã thanh toán' THEN tk.Price * tk.SeatCount ELSE 0 END), 0)
+FROM Tickets tk
+JOIN Trips tr ON tr.TripId = tk.TripId
+WHERE tk.AccountId = @AccountId;";
         await using var connection = GetConnection(); await connection.OpenAsync(); await using var command = new SqlCommand(sql, connection); command.Parameters.Add("@AccountId", SqlDbType.Int).Value = accountId;
         await using var reader = await command.ExecuteReaderAsync(); await reader.ReadAsync(); return (reader.GetInt32(0), reader.GetInt32(1), reader.GetDecimal(2));
     }
@@ -97,9 +155,15 @@ SELECT TOP (@Top)
     r.Origin,
     r.Destination,
     r.DistanceKm,
-    COALESCE(MIN(t.Price), 120000) AS MinPrice
+    COALESCE(MIN(t.Price), 120000) AS MinPrice,
+    COALESCE(MAX(b.CompanyName), N'Sao Việt') AS CompanyName,
+    COALESCE(MAX(bc.BrandColor), N'#0F4C81') AS BrandColor,
+    COALESCE(MAX(bc.LogoText), N'SV') AS LogoText,
+    COALESCE(MAX(r.IntermediateStops), N'') AS IntermediateStops
 FROM Routes r
 LEFT JOIN Trips t ON t.RouteId = r.RouteId
+LEFT JOIN Buses b ON b.BusId = t.BusId
+LEFT JOIN BusCompanies bc ON bc.CompanyName = b.CompanyName
 GROUP BY r.RouteId, r.Origin, r.Destination, r.DistanceKm
 ORDER BY COUNT(t.TripId) DESC, r.RouteId;";
 
@@ -119,37 +183,27 @@ ORDER BY COUNT(t.TripId) DESC, r.RouteId;";
                 var destination = reader.GetString(2);
                 var distance = reader.IsDBNull(3) ? 100m : reader.GetDecimal(3);
                 var minPrice = reader.GetDecimal(4);
+                var companyName = reader.IsDBNull(5) ? "Sao Việt" : reader.GetString(5);
+                var brandColor = reader.IsDBNull(6) ? "#0F4C81" : reader.GetString(6);
+                var logoText = reader.IsDBNull(7) ? "SV" : reader.GetString(7);
+                var intermediateStops = reader.IsDBNull(8) ? "" : reader.GetString(8);
+
                 var hours = (int)(distance / 50m);
                 var minutes = (int)(((distance / 50m) - hours) * 60m);
                 var duration = hours > 0 ? $"{hours}h {minutes}m" : $"{minutes}m";
                 var tag = idx switch { 1 => "Most Popular", 2 => "Express Daily", 3 => "Direct Route", _ => "Featured" };
-                list.Add(new PopularRouteItem(routeId, origin, destination, duration, $"{minPrice:N0} VND", tag, minPrice));
+                list.Add(new PopularRouteItem(routeId, origin, destination, duration, $"{minPrice:N0} VND", tag, minPrice,
+                    companyName, brandColor, logoText, intermediateStops));
                 idx++;
             }
         }
-        catch { }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError("Could not load the popular routes.", ex);
+        }
         return list;
     }
 
-    public static async Task<(IReadOnlyList<string> Origins, IReadOnlyList<string> Destinations)> GetAvailableLocationsAsync()
-    {
-        var origins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var destinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            await using var connection = GetConnection();
-            await connection.OpenAsync();
-            await using var command = new SqlCommand("SELECT DISTINCT Origin, Destination FROM Routes ORDER BY Origin, Destination;", connection);
-            await using var reader = await command.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                origins.Add(reader.GetString(0));
-                destinations.Add(reader.GetString(1));
-            }
-        }
-        catch { }
-        return (origins.ToList(), destinations.ToList());
-    }
     public static async Task<IReadOnlyList<string>> GetDistinctOriginsAsync()
     {
         const string sql = "SELECT DISTINCT Origin FROM Routes ORDER BY Origin;";
@@ -184,22 +238,35 @@ ORDER BY COUNT(t.TripId) DESC, r.RouteId;";
         return list;
     }
 
+    public static string EscapeLikePattern(string term) => term
+        .Replace("[", "[[]", StringComparison.Ordinal)
+        .Replace("%", "[%]", StringComparison.Ordinal)
+        .Replace("_", "[_]", StringComparison.Ordinal);
+
     public static async Task<IReadOnlyList<TripSearchResult>> SearchTripsAsync(string? origin, string? destination, DateTime? date)
     {
-        var originFilter = string.IsNullOrWhiteSpace(origin) ? "%" : $"%{origin.Trim()}%";
-        var destFilter = string.IsNullOrWhiteSpace(destination) ? "%" : $"%{destination.Trim()}%";
+        var originFilter = string.IsNullOrWhiteSpace(origin) ? "%" : $"%{EscapeLikePattern(origin.Trim())}%";
+        var destFilter = string.IsNullOrWhiteSpace(destination) ? "%" : $"%{EscapeLikePattern(destination.Trim())}%";
         var dateClause = date.HasValue ? "AND CAST(t.DepartureTime AS date)=@Date" : "AND t.DepartureTime >= SYSUTCDATETIME()";
-        var sql = $@"SELECT t.TripId,r.Origin,r.Destination,b.BusType,t.DepartureTime,t.ArrivalTime,t.Price,
-                       b.SeatCount-COUNT(tk.TicketId)
+        var sql = $@"SELECT t.TripId, r.Origin, r.Destination, b.BusType, t.DepartureTime, t.ArrivalTime, t.Price,
+                       b.SeatCount - (SELECT COUNT(DISTINCT ts2.SeatId)
+                                      FROM TicketSeats ts2
+                                      JOIN Tickets tk2 ON tk2.TicketId=ts2.TicketId
+                                      WHERE tk2.TripId=t.TripId
+                                        AND tk2.Status IN (N'Đã đặt',N'Đã thanh toán',N'Đã sử dụng')
+                                        AND (tk2.PaymentStatus=N'Đã thanh toán' OR tk2.PaymentExpiresAt>SYSUTCDATETIME())),
+                       COALESCE(b.CompanyName, N'Sao Việt') AS CompanyName,
+                       COALESCE(bc.BrandColor, N'#0F4C81') AS BrandColor,
+                       COALESCE(bc.LogoText, N'SV') AS LogoText,
+                       COALESCE(r.IntermediateStops, N'') AS IntermediateStops,
+                       COALESCE(b.DriverName, N'Nguyễn Văn Hùng') AS DriverName,
+                       COALESCE(b.DriverPhone, N'1900 1234') AS DriverPhone,
+                       COALESCE(b.LicensePlate, N'20A-123.45') AS LicensePlate
                 FROM Trips t
                 JOIN Routes r ON r.RouteId=t.RouteId
                 JOIN Buses b ON b.BusId=t.BusId
-                LEFT JOIN Seats s ON s.BusId=b.BusId
-                LEFT JOIN Tickets tk ON tk.TripId=t.TripId AND tk.SeatId=s.SeatId
-                    AND tk.Status IN (N'Đã đặt',N'Đã thanh toán')
-                    AND (tk.PaymentStatus = N'Đã thanh toán' OR tk.PaymentExpiresAt > SYSUTCDATETIME())
+                LEFT JOIN BusCompanies bc ON bc.CompanyName=b.CompanyName
                 WHERE r.Origin LIKE @Origin AND r.Destination LIKE @Destination {dateClause}
-                GROUP BY t.TripId,r.Origin,r.Destination,b.BusType,b.SeatCount,t.DepartureTime,t.ArrivalTime,t.Price
                 ORDER BY t.DepartureTime;";
         var results = new List<TripSearchResult>();
         try
@@ -212,9 +279,22 @@ ORDER BY COUNT(t.TripId) DESC, r.RouteId;";
             if (date.HasValue) command.Parameters.Add("@Date", SqlDbType.Date).Value = date.Value.Date;
             await using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
-                results.Add(new TripSearchResult(reader.GetInt32(0), reader.GetString(1), reader.GetString(2),
-                    reader.IsDBNull(3) ? "Ghế ngồi" : reader.GetString(3), reader.GetDateTime(4),
-                    reader.GetDateTime(5), reader.GetDecimal(6), reader.GetInt32(7)));
+                results.Add(new TripSearchResult(
+                    reader.GetInt32(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.IsDBNull(3) ? "Standard" : reader.GetString(3),
+                    reader.GetDateTime(4),
+                    reader.GetDateTime(5),
+                    reader.GetDecimal(6),
+                    reader.GetInt32(7),
+                    reader.IsDBNull(8) ? "Sao Việt" : reader.GetString(8),
+                    reader.IsDBNull(9) ? "#0F4C81" : reader.GetString(9),
+                    reader.IsDBNull(10) ? "SV" : reader.GetString(10),
+                    reader.IsDBNull(11) ? "" : reader.GetString(11),
+                    reader.IsDBNull(12) ? "Nguyễn Văn Hùng" : reader.GetString(12),
+                    reader.IsDBNull(13) ? "1900 1234" : reader.GetString(13),
+                    reader.IsDBNull(14) ? "20A-123.45" : reader.GetString(14)));
         }
         catch (SqlException ex)
         {
@@ -223,59 +303,417 @@ ORDER BY COUNT(t.TripId) DESC, r.RouteId;";
         return results;
     }
 
+    public static async Task EnsureBusCompaniesSyncedAsync()
+    {
+        const string syncSql = @"
+INSERT INTO BusCompanies (CompanyName, Hotline, Rating, ReviewCount, OperatingArea, Description, Amenities, LogoText, BrandColor)
+SELECT DISTINCT TRIM(b.CompanyName),
+       COALESCE(NULLIF(MAX(b.DriverPhone), N''), N'1900 1234'),
+       4.8,
+       150,
+       COALESCE(NULLIF(MAX(r.Origin + N' - ' + r.Destination), N''), N'Toàn quốc'),
+       N'Nhà xe ' + TRIM(b.CompanyName) + N' chuyên phục vụ vận tải hành khách chất lượng cao, uy tín, an toàn và đúng giờ.',
+       N'Wifi tốc độ cao, Nước uống, Khăn lạnh, Điều hòa, Cổng sạc USB',
+       UPPER(SUBSTRING(TRIM(b.CompanyName), 1, 2)),
+       N'#0F4C81'
+FROM Buses b
+LEFT JOIN Routes r ON r.RouteId = b.RouteId
+WHERE b.CompanyName IS NOT NULL AND TRIM(b.CompanyName) <> ''
+  AND NOT EXISTS (SELECT 1 FROM BusCompanies bc WHERE TRIM(bc.CompanyName) = TRIM(b.CompanyName))
+GROUP BY TRIM(b.CompanyName);";
+
+        try
+        {
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(syncSql, connection);
+            await command.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogError("Could not synchronize bus companies.", ex);
+        }
+    }
+
+    public static async Task<IReadOnlyList<BusCompanyItem>> GetBookingCompaniesAsync(string? origin, string? destination, DateTime? date = null)
+    {
+        await EnsureBusCompaniesSyncedAsync();
+
+        var hasOrigin = !string.IsNullOrWhiteSpace(origin);
+        var hasDest = !string.IsNullOrWhiteSpace(destination);
+        var originFilter = hasOrigin ? $"%{EscapeLikePattern(origin!.Trim())}%" : "%";
+        var destFilter = hasDest ? $"%{EscapeLikePattern(destination!.Trim())}%" : "%";
+        var dateClause = date.HasValue ? "AND CAST(t.DepartureTime AS date) = @Date" : "";
+        var sql = $@"
+SELECT MIN(bc.CompanyId) AS CompanyId,
+       TRIM(bc.CompanyName) AS CompanyName,
+       COALESCE(MAX(bc.Hotline), N'1900 1234') AS Hotline,
+       COALESCE(MAX(bc.Rating), 4.8) AS Rating,
+       COALESCE(MAX(bc.ReviewCount), 1250) AS ReviewCount,
+       COALESCE(MAX(bc.OperatingArea), N'Toàn quốc') AS OperatingArea,
+       COALESCE(MAX(bc.Description), N'Nhà xe chất lượng cao, an toàn và đúng giờ.') AS Description,
+       COALESCE(MAX(bc.Amenities), N'Wifi, Nước uống, Khăn lạnh, Điều hòa') AS Amenities,
+       COALESCE(MAX(bc.LogoText), UPPER(SUBSTRING(TRIM(bc.CompanyName), 1, 2))) AS LogoText,
+       COALESCE(MAX(bc.BrandColor), N'#0F4C81') AS BrandColor,
+       COALESCE(MIN(t.Price), 120000) AS MinPrice,
+       COUNT(DISTINCT t.TripId) AS ActiveTripsCount
+FROM BusCompanies bc
+LEFT JOIN Buses b ON TRIM(b.CompanyName) = TRIM(bc.CompanyName)
+LEFT JOIN Trips t ON t.BusId = b.BusId AND t.DepartureTime >= SYSUTCDATETIME() {dateClause}
+LEFT JOIN Routes r ON r.RouteId = t.RouteId
+WHERE 1=1
+  {(hasOrigin ? "AND (r.Origin LIKE @Origin OR bc.OperatingArea LIKE @Origin)" : "")}
+  {(hasDest ? "AND (r.Destination LIKE @Dest OR bc.OperatingArea LIKE @Dest)" : "")}
+GROUP BY TRIM(bc.CompanyName)
+ORDER BY ActiveTripsCount DESC, MAX(bc.Rating) DESC, TRIM(bc.CompanyName);" ;
+
+        var list = new List<BusCompanyItem>();
+        try
+        {
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(sql, connection);
+            if (hasOrigin) command.Parameters.Add("@Origin", SqlDbType.NVarChar, 100).Value = originFilter;
+            if (hasDest) command.Parameters.Add("@Dest", SqlDbType.NVarChar, 100).Value = destFilter;
+            if (date.HasValue) command.Parameters.Add("@Date", SqlDbType.Date).Value = date.Value.Date;
+
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                list.Add(new BusCompanyItem(
+                    reader.GetInt32(0),
+                    reader.GetString(1),
+                    reader.IsDBNull(2) ? "1900 1234" : reader.GetString(2),
+                    reader.GetDecimal(3),
+                    reader.GetInt32(4),
+                    reader.IsDBNull(5) ? "Toàn quốc" : reader.GetString(5),
+                    reader.IsDBNull(6) ? "Nhà xe chất lượng cao." : reader.GetString(6),
+                    reader.IsDBNull(7) ? "Wifi, Nước uống, Khăn lạnh" : reader.GetString(7),
+                    reader.IsDBNull(8) ? "XE" : reader.GetString(8),
+                    reader.IsDBNull(9) ? "#0F4C81" : reader.GetString(9),
+                    reader.GetDecimal(10),
+                    reader.GetInt32(11)));
+            }
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError("Could not load booking companies.", ex);
+        }
+        return list;
+    }
+
+    public static async Task<IReadOnlyList<BusCompanyItem>> GetBusCompaniesAsync()
+    {
+        await EnsureBusCompaniesSyncedAsync();
+        const string sql = @"SELECT CompanyId, CompanyName, Hotline, Rating, ReviewCount, OperatingArea, Description, Amenities, LogoText, BrandColor
+                             FROM BusCompanies
+                             ORDER BY Rating DESC, ReviewCount DESC;";
+        var list = new List<BusCompanyItem>();
+        try
+        {
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(sql, connection);
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                list.Add(new BusCompanyItem(
+                    reader.GetInt32(0),
+                    reader.GetString(1),
+                    reader.IsDBNull(2) ? "1900 1234" : reader.GetString(2),
+                    reader.GetDecimal(3),
+                    reader.GetInt32(4),
+                    reader.IsDBNull(5) ? "" : reader.GetString(5),
+                    reader.IsDBNull(6) ? "" : reader.GetString(6),
+                    reader.IsDBNull(7) ? "" : reader.GetString(7),
+                    reader.IsDBNull(8) ? "SV" : reader.GetString(8),
+                    reader.IsDBNull(9) ? "#0F4C81" : reader.GetString(9)));
+            }
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError("Could not load bus companies.", ex);
+        }
+        return list;
+    }
+
+    public static async Task<BusCompanyItem?> GetBusCompanyByNameAsync(string name)
+    {
+        const string sql = @"SELECT TOP 1 CompanyId, CompanyName, Hotline, Rating, ReviewCount, OperatingArea, Description, Amenities, LogoText, BrandColor
+                             FROM BusCompanies
+                             WHERE CompanyName = @Name OR CompanyName LIKE @Pattern;";
+        try
+        {
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(sql, connection);
+            command.Parameters.Add("@Name", SqlDbType.NVarChar, 100).Value = name;
+            command.Parameters.Add("@Pattern", SqlDbType.NVarChar, 100).Value = $"%{EscapeLikePattern(name.Trim())}%";
+            await using var reader = await command.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return new BusCompanyItem(
+                    reader.GetInt32(0),
+                    reader.GetString(1),
+                    reader.IsDBNull(2) ? "1900 1234" : reader.GetString(2),
+                    reader.GetDecimal(3),
+                    reader.GetInt32(4),
+                    reader.IsDBNull(5) ? "" : reader.GetString(5),
+                    reader.IsDBNull(6) ? "" : reader.GetString(6),
+                    reader.IsDBNull(7) ? "" : reader.GetString(7),
+                    reader.IsDBNull(8) ? "SV" : reader.GetString(8),
+                    reader.IsDBNull(9) ? "#0F4C81" : reader.GetString(9));
+            }
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not find bus company '{name}'.", ex);
+        }
+        return null;
+    }
+
+    public static async Task<IReadOnlyList<TripSearchResult>> GetTripsByCompanyAsync(string companyName, DateTime? date = null)
+    {
+        var dateClause = date.HasValue ? "AND CAST(t.DepartureTime AS date)=@Date" : "AND t.DepartureTime >= SYSUTCDATETIME()";
+        var sql = $@"SELECT t.TripId, r.Origin, r.Destination, b.BusType, t.DepartureTime, t.ArrivalTime, t.Price,
+                       b.SeatCount - (SELECT COUNT(DISTINCT ts2.SeatId)
+                                      FROM TicketSeats ts2
+                                      JOIN Tickets tk2 ON tk2.TicketId=ts2.TicketId
+                                      WHERE tk2.TripId=t.TripId
+                                        AND tk2.Status IN (N'Đã đặt',N'Đã thanh toán',N'Đã sử dụng')
+                                        AND (tk2.PaymentStatus=N'Đã thanh toán' OR tk2.PaymentExpiresAt>SYSUTCDATETIME())),
+                       COALESCE(b.CompanyName, N'Sao Việt') AS CompanyName,
+                       COALESCE(bc.BrandColor, N'#0F4C81') AS BrandColor,
+                       COALESCE(bc.LogoText, N'SV') AS LogoText,
+                       COALESCE(r.IntermediateStops, N'') AS IntermediateStops,
+                       COALESCE(b.DriverName, N'Nguyễn Văn Hùng') AS DriverName,
+                       COALESCE(b.DriverPhone, N'1900 1234') AS DriverPhone,
+                       COALESCE(b.LicensePlate, N'20A-123.45') AS LicensePlate
+                FROM Trips t
+                JOIN Routes r ON r.RouteId=t.RouteId
+                JOIN Buses b ON b.BusId=t.BusId
+                LEFT JOIN BusCompanies bc ON bc.CompanyName=b.CompanyName
+                WHERE (b.CompanyName = @Company OR b.CompanyName LIKE @CompanyPattern) {dateClause}
+                ORDER BY t.DepartureTime;";
+        var results = new List<TripSearchResult>();
+        try
+        {
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(sql, connection);
+            command.Parameters.Add("@Company", SqlDbType.NVarChar, 100).Value = companyName;
+            command.Parameters.Add("@CompanyPattern", SqlDbType.NVarChar, 100).Value = $"%{EscapeLikePattern(companyName.Trim())}%";
+            if (date.HasValue) command.Parameters.Add("@Date", SqlDbType.Date).Value = date.Value.Date;
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                results.Add(new TripSearchResult(
+                    reader.GetInt32(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.IsDBNull(3) ? "Standard" : reader.GetString(3),
+                    reader.GetDateTime(4),
+                    reader.GetDateTime(5),
+                    reader.GetDecimal(6),
+                    reader.GetInt32(7),
+                    reader.IsDBNull(8) ? "Sao Việt" : reader.GetString(8),
+                    reader.IsDBNull(9) ? "#0F4C81" : reader.GetString(9),
+                    reader.IsDBNull(10) ? "SV" : reader.GetString(10),
+                    reader.IsDBNull(11) ? "" : reader.GetString(11),
+                    reader.IsDBNull(12) ? "Nguyễn Văn Hùng" : reader.GetString(12),
+                    reader.IsDBNull(13) ? "1900 1234" : reader.GetString(13),
+                    reader.IsDBNull(14) ? "20A-123.45" : reader.GetString(14)));
+            }
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not load trips for company '{companyName}'.", ex);
+        }
+        return results;
+    }
+
     public static async Task<IReadOnlyList<SeatInfo>> GetSeatsAsync(int tripId)
     {
-        const string sql = "SELECT s.SeatId,s.BusId,s.SeatNumber,CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM Tickets t WHERE t.TripId=@TripId AND t.SeatId=s.SeatId AND t.Status IN(N'Đã đặt',N'Đã thanh toán') AND (t.PaymentStatus=N'Đã thanh toán' OR t.PaymentExpiresAt>SYSUTCDATETIME())) THEN 1 ELSE 0 END) FROM Seats s JOIN Trips tr ON tr.BusId=s.BusId WHERE tr.TripId=@TripId ORDER BY s.SeatId;";
+        const string sql = @"SELECT s.SeatId,s.BusId,s.SeatNumber,
+CONVERT(bit,CASE WHEN EXISTS(
+    SELECT 1 FROM TicketSeats ts
+    JOIN Tickets t ON t.TicketId=ts.TicketId
+    WHERE t.TripId=@TripId AND ts.SeatId=s.SeatId
+      AND t.Status IN(N'Đã đặt',N'Đã thanh toán',N'Đã sử dụng')
+      AND (t.PaymentStatus=N'Đã thanh toán' OR t.PaymentExpiresAt>SYSUTCDATETIME())
+) THEN 1 ELSE 0 END)
+FROM Seats s JOIN Trips tr ON tr.BusId=s.BusId WHERE tr.TripId=@TripId ORDER BY s.SeatId;";
         var seats = new List<SeatInfo>(); await using var connection = GetConnection(); await connection.OpenAsync(); await using var command = new SqlCommand(sql, connection); command.Parameters.Add("@TripId", SqlDbType.Int).Value = tripId; await using var reader = await command.ExecuteReaderAsync(); while (await reader.ReadAsync()) seats.Add(new SeatInfo(reader.GetInt32(0),reader.GetInt32(1),reader.GetString(2),reader.GetBoolean(3))); return seats;
     }
 
-    public static async Task<(bool Success, TicketDetails? Ticket, string? Error)> BookTicketAsync(int accountId,int tripId,int seatId,string passengerName,string? passengerPhone)
+    public static async Task<(bool Success, TicketDetails? Ticket, string? Error)> BookTicketAsync(int accountId, int tripId, int seatId, string passengerName, string? passengerPhone)
     {
+        var result = await BookTicketsAsync(accountId, tripId, new[] { seatId }, passengerName, passengerPhone);
+        return (result.Success, result.Ticket, result.Error);
+    }
+
+    /// <summary>
+    /// Reserves all requested seats in one serializable transaction, creating a
+    /// single <c>Tickets</c> row and one <c>TicketSeats</c> row per seat.
+    /// This produces one ticket code, one payment and one customer-facing item.
+    /// </summary>
+    public static async Task<(bool Success, TicketDetails? Ticket, string? Error)> BookTicketsAsync(
+        int accountId,
+        int tripId,
+        IReadOnlyCollection<int> seatIds,
+        string passengerName,
+        string? passengerPhone)
+    {
+        var requestedSeatIds = seatIds.Distinct().ToArray();
+        if (requestedSeatIds.Length == 0)
+            return (false, null, "Please select at least one seat.");
+        if (requestedSeatIds.Length != seatIds.Count)
+            return (false, null, "Each seat can only be selected once.");
+
         try
         {
             await Services.PaymentService.ExpirePendingPaymentsAsync();
         }
         catch (SqlException ex)
         {
-            LoggerService.LogError($"Could not expire pending payments before booking (account={accountId}, trip={tripId}, seat={seatId}).", ex);
-            return (false, null, "Không thể kết nối tới dữ liệu thanh toán. Hãy kiểm tra database và migration.");
+            LoggerService.LogError($"Could not expire pending payments before booking (account={accountId}, trip={tripId}).", ex);
+            return (false, null, "Could not reach the payment data. Check the database connection and migrations.");
         }
-        const string insert = "INSERT INTO Tickets(TicketCode,TripId,SeatId,AccountId,PassengerName,PassengerPhone,Price,Status,PaymentExpiresAt) SELECT @Code,tr.TripId,@SeatId,@AccountId,@Name,@Phone,tr.Price,N'Đã đặt',DATEADD(MINUTE,15,SYSUTCDATETIME()) FROM Trips tr JOIN Seats s ON s.BusId=tr.BusId WHERE tr.TripId=@TripId AND s.SeatId=@SeatId AND NOT EXISTS(SELECT 1 FROM Tickets x WHERE x.TripId=@TripId AND x.SeatId=@SeatId AND x.Status IN(N'Đã đặt',N'Đã thanh toán') AND (x.PaymentStatus=N'Đã thanh toán' OR x.PaymentExpiresAt>SYSUTCDATETIME()));";
-        const string select = "SELECT TOP 1 tk.TicketId,tk.TicketCode,r.Origin+N' → '+r.Destination,tr.DepartureTime,tr.ArrivalTime,b.BusType,s.SeatNumber,tk.Price,tk.Status,tk.BookingTime,r.Origin,r.Destination,COALESCE(r.DistanceKm,0),tk.PassengerName,tk.PassengerPhone,b.LicensePlate FROM Tickets tk JOIN Trips tr ON tr.TripId=tk.TripId JOIN Routes r ON r.RouteId=tr.RouteId JOIN Buses b ON b.BusId=tr.BusId JOIN Seats s ON s.SeatId=tk.SeatId WHERE tk.TicketCode=@Code;";
-        await using var connection = GetConnection(); await connection.OpenAsync(); await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.Serializable);
+
+        // Insert one ticket row; Price = per-seat fare from Trips, SeatCount = number of seats.
+        const string insertTicket = @"
+INSERT INTO Tickets(TicketCode,TripId,AccountId,PassengerName,PassengerPhone,Price,SeatCount,Status,PaymentStatus,PaymentExpiresAt)
+SELECT @Code,tr.TripId,@AccountId,@Name,@Phone,tr.Price,@SeatCount,N'Đã đặt',N'Chưa thanh toán',DATEADD(MINUTE,15,SYSUTCDATETIME())
+FROM Trips tr WHERE tr.TripId=@TripId;
+SELECT CAST(SCOPE_IDENTITY() AS int);";
+
+        // Insert one junction row per seat, guarded against double-booking.
+        const string insertSeat = @"
+INSERT INTO TicketSeats(TicketId,SeatId)
+SELECT @TicketId,@SeatId
+WHERE EXISTS(SELECT 1 FROM Seats s JOIN Trips tr ON tr.BusId=s.BusId WHERE tr.TripId=@TripId AND s.SeatId=@SeatId)
+  AND NOT EXISTS(
+    SELECT 1 FROM TicketSeats ts2
+    JOIN Tickets x ON x.TicketId=ts2.TicketId
+    WHERE x.TripId=@TripId AND ts2.SeatId=@SeatId
+      AND x.Status IN(N'Đã đặt',N'Đã thanh toán',N'Đã sử dụng')
+      AND (x.PaymentStatus=N'Đã thanh toán' OR x.PaymentExpiresAt>SYSUTCDATETIME()));";
+
+        await using var connection = GetConnection();
+        await connection.OpenAsync();
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.Serializable);
         try
         {
-            var code=$"BT-{DateTime.UtcNow:yyyyMMddHHmmss}-{RandomNumberGenerator.GetInt32(1000,9999)}";
-            await using var insertCommand=new SqlCommand(insert,connection,(SqlTransaction)transaction);
-            insertCommand.Parameters.Add("@Code",SqlDbType.NVarChar,30).Value=code;
-            insertCommand.Parameters.Add("@TripId",SqlDbType.Int).Value=tripId;
-            insertCommand.Parameters.Add("@SeatId",SqlDbType.Int).Value=seatId;
-            insertCommand.Parameters.Add("@AccountId",SqlDbType.Int).Value=accountId;
-            insertCommand.Parameters.Add("@Name",SqlDbType.NVarChar,100).Value=passengerName;
-            insertCommand.Parameters.Add("@Phone",SqlDbType.NVarChar,20).Value=(object?)passengerPhone??DBNull.Value;
-            if(await insertCommand.ExecuteNonQueryAsync()==0)
+            // 1. Create a single ticket.
+            var code = $"BT-{DateTime.UtcNow:yyyyMMddHHmmss}-{RandomNumberGenerator.GetInt32(1000, 9999)}";
+            int ticketId;
+            await using (var ticketCmd = new SqlCommand(insertTicket, connection, transaction))
             {
-                return(false,null,"Ghế vừa được người khác đặt hoặc không hợp lệ.");
+                ticketCmd.Parameters.Add("@Code", SqlDbType.NVarChar, 30).Value = code;
+                ticketCmd.Parameters.Add("@TripId", SqlDbType.Int).Value = tripId;
+                ticketCmd.Parameters.Add("@AccountId", SqlDbType.Int).Value = accountId;
+                ticketCmd.Parameters.Add("@Name", SqlDbType.NVarChar, 100).Value = passengerName;
+                ticketCmd.Parameters.Add("@Phone", SqlDbType.NVarChar, 20).Value = (object?)passengerPhone ?? DBNull.Value;
+                ticketCmd.Parameters.Add("@SeatCount", SqlDbType.Int).Value = requestedSeatIds.Length;
+                var scalar = await ticketCmd.ExecuteScalarAsync();
+                if (scalar is null or DBNull)
+                {
+                    await transaction.RollbackAsync();
+                    return (false, null, "The trip was not found.");
+                }
+                ticketId = (int)scalar;
             }
-            await using var selectCommand=new SqlCommand(select,connection,(SqlTransaction)transaction);
-            selectCommand.Parameters.Add("@Code",SqlDbType.NVarChar,30).Value=code;
-            await using var reader=await selectCommand.ExecuteReaderAsync();
-            await reader.ReadAsync();
-            var ticket=new TicketDetails(reader.GetInt32(0),reader.GetString(1),reader.GetString(2),reader.GetDateTime(3),reader.GetDateTime(4),reader.IsDBNull(5)?"":reader.GetString(5),reader.GetString(6),reader.GetDecimal(7),reader.GetString(8),reader.GetDateTime(9),reader.GetString(10),reader.GetString(11),reader.GetDecimal(12)) { PassengerName=reader.GetString(13), PassengerPhone=reader.IsDBNull(14)?null:reader.GetString(14), LicensePlate=reader.GetString(15) };
+
+            // 2. Link each seat.
+            foreach (var seatId in requestedSeatIds)
+            {
+                await using var seatCmd = new SqlCommand(insertSeat, connection, transaction);
+                seatCmd.Parameters.Add("@TicketId", SqlDbType.Int).Value = ticketId;
+                seatCmd.Parameters.Add("@SeatId", SqlDbType.Int).Value = seatId;
+                seatCmd.Parameters.Add("@TripId", SqlDbType.Int).Value = tripId;
+                if (await seatCmd.ExecuteNonQueryAsync() == 0)
+                {
+                    await transaction.RollbackAsync();
+                    return (false, null, "One of the selected seats has just been taken or is not valid for this trip.");
+                }
+            }
+
+            // 3. Read back the complete ticket.
+            var select = TicketProjection + " WHERE tk.TicketId = @TicketId;";
+            await using var selectCommand = new SqlCommand(select, connection, transaction);
+            selectCommand.Parameters.Add("@TicketId", SqlDbType.Int).Value = ticketId;
+
+            TicketDetails? ticket = null;
+            await using (var reader = await selectCommand.ExecuteReaderAsync())
+            {
+                if (await reader.ReadAsync())
+                    ticket = ReadTicket(reader);
+            }
+
+            if (ticket is null)
+            {
+                await transaction.RollbackAsync();
+                return (false, null, "The selected seats could not be loaded after booking.");
+            }
+
             await transaction.CommitAsync();
-            return(true,ticket,null);
+            return (true, ticket, null);
         }
-        catch(SqlException ex)
+        catch (SqlException ex)
         {
             await transaction.RollbackAsync();
-            LoggerService.LogError($"Could not book ticket (account={accountId}, trip={tripId}, seat={seatId}).", ex);
-            return(false,null,"Không thể đặt vé. Vui lòng kiểm tra kết nối database và dữ liệu chuyến xe.");
+            LoggerService.LogError($"Could not book {requestedSeatIds.Length} seat(s) (account={accountId}, trip={tripId}).", ex);
+            return (false, null, "Could not book the selected seats. Check the database connection and trip data.");
         }
     }
 
+    /// <summary>
+    /// Releases a ticket the customer owns. A settled ticket is flagged for
+    /// refund approval; an unpaid hold also fails its pending payment row so the
+    /// ledger never keeps a phantom <c>Pending</c> entry for a released seat.
+    /// </summary>
     public static async Task<(bool Success, string? Error)> CancelTicketAsync(int ticketId, int accountId)
     {
-        const string sql = "UPDATE Tickets SET Status = N'Đã hủy', CancelledAt = SYSUTCDATETIME() WHERE TicketId = @TicketId AND AccountId = @AccountId AND Status IN (N'Đã đặt', N'Đã thanh toán'); UPDATE Payments SET RefundRequestedAt=SYSUTCDATETIME() WHERE TicketId=@TicketId AND Status=N'Success' AND RefundRequestedAt IS NULL;";
+        const string sql = @"
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+
+DECLARE @Status NVARCHAR(20), @PaymentStatus NVARCHAR(20), @Departure DATETIME2;
+SELECT @Status = tk.Status, @PaymentStatus = tk.PaymentStatus, @Departure = tr.DepartureTime
+FROM dbo.Tickets tk WITH (UPDLOCK, HOLDLOCK)
+JOIN dbo.Trips tr ON tr.TripId = tk.TripId
+WHERE tk.TicketId = @TicketId AND tk.AccountId = @AccountId;
+
+IF @Status IS NULL
+BEGIN
+    ROLLBACK TRANSACTION;
+    SELECT 1;
+END
+ELSE IF @Status NOT IN (N'Đã đặt', N'Đã thanh toán')
+BEGIN
+    ROLLBACK TRANSACTION;
+    SELECT 2;
+END
+ELSE IF @Departure <= SYSUTCDATETIME()
+BEGIN
+    ROLLBACK TRANSACTION;
+    SELECT 3;
+END
+ELSE
+BEGIN
+    UPDATE dbo.Tickets SET Status = N'Đã hủy', CancelledAt = SYSUTCDATETIME(), PaymentExpiresAt = NULL
+    WHERE TicketId = @TicketId;
+
+    IF @PaymentStatus = N'Đã thanh toán'
+        UPDATE dbo.Payments SET RefundRequestedAt = SYSUTCDATETIME()
+        WHERE TicketId = @TicketId AND Status = N'Success' AND RefundRequestedAt IS NULL;
+    ELSE
+        UPDATE dbo.Payments SET Status = N'Failed', Notes = COALESCE(Notes, N'Cancelled by the customer before payment.')
+        WHERE TicketId = @TicketId AND Status = N'Pending';
+
+    COMMIT TRANSACTION;
+    SELECT 0;
+END;";
         try
         {
             await using var connection = GetConnection();
@@ -283,39 +721,103 @@ ORDER BY COUNT(t.TripId) DESC, r.RouteId;";
             await using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@TicketId", SqlDbType.Int).Value = ticketId;
             command.Parameters.Add("@AccountId", SqlDbType.Int).Value = accountId;
-            int affected = await command.ExecuteNonQueryAsync();
-            return affected > 0 ? (true, null) : (false, "Vé không thể hủy hoặc không tồn tại.");
+            var code = Convert.ToInt32(await command.ExecuteScalarAsync());
+            return code switch
+            {
+                0 => (true, null),
+                1 => (false, "Ticket not found."),
+                2 => (false, "This ticket is already cancelled or used and cannot be cancelled again."),
+                _ => (false, "This trip has already departed and can no longer be cancelled.")
+            };
         }
-        catch (SqlException)
+        catch (SqlException ex)
         {
-            return (false, "Không thể hủy vé vào thời điểm này.");
+            LoggerService.LogError($"Could not cancel ticket {ticketId} for account {accountId}.", ex);
+            return (false, "Could not cancel the ticket right now.");
+        }
+    }
+
+    /// <summary>
+    /// Customer half of the refund flow: releases a settled ticket and stamps
+    /// <c>Payments.RefundRequestedAt</c> so an administrator can approve the
+    /// payout. Approval itself is <c>PaymentService.ApproveRefundAsync</c>.
+    /// </summary>
+    public static async Task<(bool Success, string? Error)> RequestRefundAsync(int ticketId, int accountId)
+    {
+        const string sql = @"
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+
+DECLARE @Status NVARCHAR(20), @PaymentStatus NVARCHAR(20), @Departure DATETIME2;
+SELECT @Status = tk.Status, @PaymentStatus = tk.PaymentStatus, @Departure = tr.DepartureTime
+FROM dbo.Tickets tk WITH (UPDLOCK, HOLDLOCK)
+JOIN dbo.Trips tr ON tr.TripId = tk.TripId
+WHERE tk.TicketId = @TicketId AND tk.AccountId = @AccountId;
+
+IF @Status IS NULL
+BEGIN
+    ROLLBACK TRANSACTION;
+    SELECT 1;
+END
+ELSE IF @Status = N'Đã hủy'
+BEGIN
+    ROLLBACK TRANSACTION;
+    SELECT 2;
+END
+ELSE IF @Status = N'Đã sử dụng'
+BEGIN
+    ROLLBACK TRANSACTION;
+    SELECT 3;
+END
+ELSE IF @Status <> N'Đã thanh toán' OR @PaymentStatus <> N'Đã thanh toán'
+BEGIN
+    ROLLBACK TRANSACTION;
+    SELECT 4;
+END
+ELSE IF @Departure <= SYSUTCDATETIME()
+BEGIN
+    ROLLBACK TRANSACTION;
+    SELECT 5;
+END
+ELSE
+BEGIN
+    UPDATE dbo.Tickets SET Status = N'Đã hủy', CancelledAt = SYSUTCDATETIME(), PaymentExpiresAt = NULL
+    WHERE TicketId = @TicketId;
+
+    UPDATE dbo.Payments SET RefundRequestedAt = SYSUTCDATETIME()
+    WHERE TicketId = @TicketId AND Status = N'Success' AND RefundRequestedAt IS NULL;
+
+    COMMIT TRANSACTION;
+    SELECT 0;
+END;";
+        try
+        {
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(sql, connection);
+            command.Parameters.Add("@TicketId", SqlDbType.Int).Value = ticketId;
+            command.Parameters.Add("@AccountId", SqlDbType.Int).Value = accountId;
+            var code = Convert.ToInt32(await command.ExecuteScalarAsync());
+            return code switch
+            {
+                0 => (true, null),
+                1 => (false, "Ticket not found."),
+                2 => (false, "This ticket is already cancelled."),
+                3 => (false, "This ticket has already been used."),
+                4 => (false, "Only paid tickets can be refunded."),
+                _ => (false, "This trip has already departed; a refund can no longer be requested.")
+            };
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not request a refund for ticket {ticketId} (account {accountId}).", ex);
+            return (false, "Could not submit the refund request right now.");
         }
     }
 
     public static async Task<IReadOnlyList<TicketDetails>> GetTicketsAsync(int accountId, bool history)
     {
-        const string sql = @"
-SELECT tk.TicketId,
-       tk.TicketCode,
-       r.Origin + N' → ' + r.Destination,
-       tr.DepartureTime,
-       tr.ArrivalTime,
-       b.BusType,
-       s.SeatNumber,
-       tk.Price,
-       tk.Status,
-       tk.BookingTime,
-       r.Origin,
-       r.Destination,
-       COALESCE(r.DistanceKm, 0),
-       tk.PassengerName,
-       tk.PassengerPhone,
-       b.LicensePlate
-FROM Tickets tk
-JOIN Trips tr ON tr.TripId = tk.TripId
-JOIN Routes r ON r.RouteId = tr.RouteId
-JOIN Buses b ON b.BusId = tr.BusId
-JOIN Seats s ON s.SeatId = tk.SeatId
+        const string sql = TicketProjection + @"
 WHERE tk.AccountId = @AccountId
   AND (
     (@History = 1 AND (tk.Status IN (N'Đã sử dụng', N'Đã hủy') OR (tk.Status IN (N'Đã đặt', N'Đã thanh toán') AND tr.DepartureTime < SYSUTCDATETIME())))
@@ -323,7 +825,6 @@ WHERE tk.AccountId = @AccountId
     (@History = 0 AND tk.Status IN (N'Đã đặt', N'Đã thanh toán') AND tr.DepartureTime >= SYSUTCDATETIME())
   )
 ORDER BY tr.DepartureTime DESC;";
-
         var list = new List<TicketDetails>();
         try
         {
@@ -334,31 +835,15 @@ ORDER BY tr.DepartureTime DESC;";
             command.Parameters.Add("@History", SqlDbType.Bit).Value = history;
             await using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
-            {
-                list.Add(new TicketDetails(
-                    reader.GetInt32(0),
-                    reader.GetString(1),
-                    reader.GetString(2),
-                    reader.GetDateTime(3),
-                    reader.GetDateTime(4),
-                    reader.IsDBNull(5) ? "" : reader.GetString(5),
-                    reader.GetString(6),
-                    reader.GetDecimal(7),
-                    reader.GetString(8),
-                    reader.GetDateTime(9),
-                    reader.GetString(10),
-                    reader.GetString(11),
-                    reader.GetDecimal(12))
-                {
-                    PassengerName = reader.GetString(13),
-                    PassengerPhone = reader.IsDBNull(14) ? null : reader.GetString(14),
-                    LicensePlate = reader.GetString(15)
-                });
-            }
+                list.Add(ReadTicket(reader));
         }
-        catch { }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not load the {(history ? "ticket history" : "active tickets")} of account {accountId}.", ex);
+        }
         return list;
     }
+
 
     public static async Task<(int TotalCompleted, decimal TotalDistanceKm)> GetHistoryStatsAsync(int accountId)
     {
@@ -370,7 +855,7 @@ JOIN Trips tr ON tr.TripId = tk.TripId
 JOIN Routes r ON r.RouteId = tr.RouteId
 WHERE tk.AccountId = @AccountId
   AND (tk.Status = N'Đã sử dụng' OR (tk.Status IN (N'Đã đặt', N'Đã thanh toán') AND tr.DepartureTime < SYSUTCDATETIME()));";
-
+ 
         try
         {
             await using var connection = GetConnection();
@@ -383,43 +868,162 @@ WHERE tk.AccountId = @AccountId
                 return (reader.GetInt32(0), reader.GetDecimal(1));
             }
         }
-        catch { }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not load the travel history statistics of account {accountId}.", ex);
+        }
         return (0, 0m);
     }
+
+
+    /// <summary>Column list shared by every <see cref="TicketDetails"/> query.</summary>
+    private const string TicketProjection = @"
+SELECT tk.TicketId,
+       tk.TicketCode,
+       r.Origin + N' → ' + r.Destination,
+       tr.DepartureTime,
+       tr.ArrivalTime,
+       b.BusType,
+       COALESCE((SELECT STRING_AGG(s.SeatNumber, N', ') WITHIN GROUP (ORDER BY s.SeatId)
+                 FROM TicketSeats ts JOIN Seats s ON s.SeatId = ts.SeatId
+                 WHERE ts.TicketId = tk.TicketId), N'—'),
+       tk.Price,
+       tk.Status,
+       tk.BookingTime,
+       r.Origin,
+       r.Destination,
+       COALESCE(r.DistanceKm, 0),
+       tk.PassengerName,
+       tk.PassengerPhone,
+       b.LicensePlate,
+       tk.PaymentStatus,
+       tk.PaymentExpiresAt,
+       tk.UsedAt,
+       tk.CancelledAt,
+       tk.SeatCount
+FROM Tickets tk
+JOIN Trips tr ON tr.TripId = tk.TripId
+JOIN Routes r ON r.RouteId = tr.RouteId
+JOIN Buses b ON b.BusId = tr.BusId";
+
+    private static TicketDetails ReadTicket(SqlDataReader reader) => new(
+        reader.GetInt32(0),
+        reader.GetString(1),
+        reader.GetString(2),
+        reader.GetDateTime(3),
+        reader.GetDateTime(4),
+        reader.IsDBNull(5) ? "" : reader.GetString(5),
+        reader.GetString(6),
+        reader.GetDecimal(7),
+        reader.GetString(8),
+        reader.GetDateTime(9),
+        reader.GetString(10),
+        reader.GetString(11),
+        reader.GetDecimal(12))
+    {
+        PassengerName = reader.GetString(13),
+        PassengerPhone = reader.IsDBNull(14) ? null : reader.GetString(14),
+        LicensePlate = reader.GetString(15),
+        PaymentStatus = reader.GetString(16),
+        PaymentExpiresAt = reader.IsDBNull(17) ? null : reader.GetDateTime(17),
+        UsedAt = reader.IsDBNull(18) ? null : reader.GetDateTime(18),
+        CancelledAt = reader.IsDBNull(19) ? null : reader.GetDateTime(19),
+        SeatCount = reader.GetInt32(20)
+    };
 
     internal static string HashPassword(string password)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(password);
-        var salt = RandomNumberGenerator.GetBytes(16);
-        var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, PasswordIterations, HashAlgorithmName.SHA256, 32);
-        return $"PBKDF2${PasswordIterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
+        var salt = RandomNumberGenerator.GetBytes(PasswordSaltBytes);
+        var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, PasswordIterations, HashAlgorithmName.SHA256, PasswordHashBytes);
+        return $"{PasswordHashPrefix}${PasswordIterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
     }
 
+    /// <summary>
+    /// Accepts the current self-describing format and every format that ever
+    /// reached the database: the first PBKDF2 format (<c>PBKDF2$...</c>) and the
+    /// plaintext passwords stored before hashing existed. Outdated formats are
+    /// re-hashed on the next successful login, see
+    /// <see cref="AuthenticateAsync"/>.
+    /// </summary>
     internal static bool VerifyPassword(string password, string? stored)
     {
-        if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(stored) ||
-            !stored.StartsWith("PBKDF2$", StringComparison.Ordinal))
+        if (string.IsNullOrEmpty(password) || string.IsNullOrWhiteSpace(stored))
+            return false;
+
+        if (TrySplitDerivedHash(stored, out var iterations, out var salt, out var expected))
+        {
+            var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, expected.Length);
+            return CryptographicOperations.FixedTimeEquals(actual, expected);
+        }
+
+        if (LooksLikeDerivedHash(stored))
+            return false;
+
+        return CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(password), Encoding.UTF8.GetBytes(stored));
+    }
+
+    /// <summary>
+    /// True when the stored value is not the current format at the current
+    /// work factor: plaintext, the first <c>PBKDF2$</c> format, or a hash
+    /// derived with fewer iterations than <see cref="PasswordIterations"/>.
+    /// </summary>
+    private static bool IsOutdatedHashFormat(string stored)
+    {
+        if (!stored.StartsWith($"{PasswordHashPrefix}$", StringComparison.Ordinal))
+            return true;
+        return !TrySplitDerivedHash(stored, out var iterations, out _, out _) || iterations < PasswordIterations;
+    }
+
+    private static bool LooksLikeDerivedHash(string stored) =>
+        stored.StartsWith($"{PasswordHashPrefix}$", StringComparison.Ordinal) ||
+        stored.StartsWith($"{LegacyPasswordHashPrefix}$", StringComparison.Ordinal);
+
+    private static bool TrySplitDerivedHash(string stored, out int iterations, out byte[] salt, out byte[] hash)
+    {
+        iterations = 0;
+        salt = [];
+        hash = [];
+        if (!LooksLikeDerivedHash(stored))
             return false;
 
         var parts = stored.Split('$');
-        if (parts.Length != 4 || !int.TryParse(parts[1], out var iterations) || iterations <= 0)
+        if (parts.Length != 4 || !int.TryParse(parts[1], out iterations) || iterations <= 0)
             return false;
         try
         {
-            var expected = Convert.FromBase64String(parts[3]);
-            var salt = Convert.FromBase64String(parts[2]);
-            var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, expected.Length);
-            return CryptographicOperations.FixedTimeEquals(actual, expected);
+            salt = Convert.FromBase64String(parts[2]);
+            hash = Convert.FromBase64String(parts[3]);
         }
         catch (FormatException)
         {
             return false;
         }
+        return salt.Length > 0 && hash.Length > 0;
     }
+
+    private static async Task UpgradeStoredHashAsync(SqlConnection connection, int accountId, string password, string storedHash)
+    {
+        const string sql = "UPDATE Accounts SET PasswordHash=@NewHash WHERE AccountId=@AccountId AND PasswordHash=@OldHash;";
+        try
+        {
+            await using var command = new SqlCommand(sql, connection);
+            command.Parameters.Add("@NewHash", SqlDbType.NVarChar, 255).Value = HashPassword(password);
+            command.Parameters.Add("@AccountId", SqlDbType.Int).Value = accountId;
+            command.Parameters.Add("@OldHash", SqlDbType.NVarChar, 255).Value = storedHash;
+            if (await command.ExecuteNonQueryAsync() > 0)
+                LoggerService.LogInfo($"Upgraded the stored password of account {accountId} to {PasswordHashPrefix} with {PasswordIterations} iterations.");
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogWarning($"Could not upgrade the stored password format of account {accountId}: {ex.Message}");
+        }
+    }
+
     private static bool ValidateAccountInput(string username, string password, string fullName, string? phone, string? email, out string error)
     {
-        if (string.IsNullOrWhiteSpace(username) || username.Length > 50) { error = "Tên đăng nhập không hợp lệ."; return false; }
-        if (string.IsNullOrWhiteSpace(fullName) || fullName.Length > 100) { error = "Họ tên không hợp lệ."; return false; }
+        if (string.IsNullOrWhiteSpace(username) || username.Length > 50) { error = "Username must be 1-50 characters."; return false; }
+        if (string.IsNullOrWhiteSpace(fullName) || fullName.Length > 100) { error = "Full name must be 1-100 characters."; return false; }
         if (!ValidatePassword(password, out error)) return false;
         return ValidateContact(email, phone, out error);
     }
@@ -427,16 +1031,16 @@ WHERE tk.AccountId = @AccountId
     private static bool ValidatePassword(string password, out string error)
     {
         if (password.Length < 8 || password.Length > 128 || !password.Any(char.IsUpper) || !password.Any(char.IsLower) || !password.Any(char.IsDigit))
-        { error = "Mật khẩu phải dài 8-128 ký tự, có chữ hoa, chữ thường và chữ số."; return false; }
+        { error = "Password must be 8-128 characters and include an uppercase letter, a lowercase letter and a digit."; return false; }
         error = string.Empty; return true;
     }
 
     private static bool ValidateContact(string? email, string? phone, out string error)
     {
         if (!string.IsNullOrWhiteSpace(email) && !Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
-        { error = "Email không hợp lệ."; return false; }
+        { error = "Email address is not valid."; return false; }
         if (!string.IsNullOrWhiteSpace(phone) && !Regex.IsMatch(phone, @"^\+?[0-9\s-]{8,20}$"))
-        { error = "Số điện thoại không hợp lệ."; return false; }
+        { error = "Phone number is not valid."; return false; }
         error = string.Empty; return true;
     }
 }

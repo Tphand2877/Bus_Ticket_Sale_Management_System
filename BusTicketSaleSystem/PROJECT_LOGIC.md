@@ -207,12 +207,19 @@ Toàn bộ các màn hình và luồng nghiệp vụ hiện đã kết nối tr�
   - Trạng thái rỗng (Empty state) hỗ trợ xem toàn bộ các chuyến khả dụng khi không tìm thấy kết quả.
 - **Chọn ghế (SeatSelectionView)**:
   - Tải sơ đồ ghế của xe theo chuyến từ bảng `Seats`.
-  - Đánh dấu ghế đã được đặt từ bảng `Tickets` và tự động ngăn chặn việc chọn lại ghế đã có người đặt.
+  - Cho phép chọn một hoặc nhiều ghế còn trống; ghế đã được đặt vẫn bị khóa.
+  - Tự động giữ lại các ghế đang chọn khi sơ đồ được làm mới nếu chúng vẫn còn trống.
 - **Xác nhận đặt vé & Xuất vé (BookingConfirmationView & TicketView)**:
-  - Giao dịch an toàn (`IsolationLevel.Serializable`), tự động sinh mã vé duy nhất `BT-YYYYMMDDHHmmss-XXXX`.
-  - Tạo bản ghi mới trong bảng `Tickets`, đồng thời cập nhật tức thì trạng thái ghế sang 'Đã đặt'.
+  - Giao dịch đặt nhiều ghế dùng `IsolationLevel.Serializable`; toàn bộ các ghế trong một lần đặt được gom vào **1 vé duy nhất** với 1 mã vé `BT-YYYYMMDDHHmmss-XXXX`.
+  - Danh sách các ghế đã chọn được lưu vào bảng trung gian `TicketSeats` (ví dụ: chỗ 1, 2, 5, 6).
+  - Chỉ tạo duy nhất 1 giao dịch thanh toán (`Payments`) cho cả đơn hàng; tổng tiền = đơn giá × số ghế.
+  - E-Ticket hiển thị đầy đủ danh sách ghế đã đặt ("ASSIGNED SEATS (N): 01, 02, 05, 06"), in/xuất PDF chỉ cần 1 vé duy nhất.
+  - Admin chỉ cần duyệt 1 payment duy nhất cho cả gia đình/nhóm thay vì phải duyệt từng vé lẻ.
+  - Nút đặt vé có guard `!IsBusy` ngăn chặn việc click đúp tạo đơn hàng trùng.
 - **Vé của tôi (MyTicketsView)**:
-  - Truy vấn danh sách các vé đang hoạt động (`Đã đặt`, `Đã thanh toán`) có thời gian khởi hành trong tương lai.
+  - Truy vấn các vé đang hoạt động (`Đã đặt`, `Đã thanh toán`) có thời gian khởi hành trong tương lai.
+  - Với payment chưa được duyệt, vẫn hiển thị đầy đủ thẻ vé nhưng thay nút **View E-Ticket** bằng nút **Pending** không thao tác được.
+  - Chỉ nút **View E-Ticket** của ticket đã thanh toán mới mở `TicketView`.
   - Hỗ trợ chức năng **Hủy vé** (`CancelTicketAsync`) cập nhật trạng thái `Đã hủy` và thời gian hủy `CancelledAt` trong database.
   - Empty state hướng dẫn người dùng khi chưa có vé hoạt động.
 - **Lịch sử chuyến đi (HistoryView)**:

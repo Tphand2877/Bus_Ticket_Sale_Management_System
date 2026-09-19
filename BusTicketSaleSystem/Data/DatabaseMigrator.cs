@@ -1,6 +1,7 @@
 using System.Data;
 using System.IO;
 using System.Text.RegularExpressions;
+using BusTicketSaleSystem.Services;
 using Microsoft.Data.SqlClient;
 
 namespace BusTicketSaleSystem.Data;
@@ -8,6 +9,10 @@ namespace BusTicketSaleSystem.Data;
 public static class DatabaseMigrator
 {
     private const string HistoryTable = "__DatabaseMigrations";
+
+    /// <summary>Below this many days of future departures the schedule is topped up.</summary>
+    private const int MinimumScheduleDaysAhead = 2;
+
     private static readonly SemaphoreSlim Gate = new(1, 1);
 
     public static string? LastError { get; private set; }
@@ -30,12 +35,62 @@ public static class DatabaseMigrator
             await ApplyMigrationAsync(connection, "005_PerformanceIndexes", "Migration_003_PerformanceIndexes.sql", skipWhenAccountsExist: false, cancellationToken);
             await ApplyMigrationAsync(connection, "006_PaymentExpiry", "Migration_004_PaymentExpiry.sql", skipWhenAccountsExist: false, cancellationToken);
             await ApplyMigrationAsync(connection, "007_DevelopmentSeedData", "SeedData.sql", skipWhenAccountsExist: false, cancellationToken);
+            await ApplyMigrationAsync(connection, "008_SettlementHardening", "Migration_005_Settlement.sql", skipWhenAccountsExist: false, cancellationToken);
+            await ApplyMigrationAsync(connection, "009_MultiSeatTicket", "Migration_006_MultiSeatTicket.sql", skipWhenAccountsExist: false, cancellationToken);
+            await ApplyMigrationAsync(connection, "010_BusCompanyAndRegistration", "Migration_007_BusCompanyAndRegistration.sql", skipWhenAccountsExist: false, cancellationToken);
+            await EnsureStagePriceColumnsAsync(connection, cancellationToken);
             return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             LastError = ex.Message;
+            LoggerService.LogError("Database migration failed.", ex);
             return false;
+        }
+        finally
+        {
+            Gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Keeps the departure schedule populated. Runs <c>Data/DevSeedTrips.sql</c>
+    /// when the database has fewer than <see cref="MinimumScheduleDaysAhead"/>
+    /// days of future departures left, which tops the schedule up to 14 days
+    /// ahead. Safe to call on every startup and never throws.
+    /// </summary>
+    /// <returns>The number of trips added; zero when nothing was needed.</returns>
+    public static async Task<int> EnsureUpcomingTripsAsync(CancellationToken cancellationToken = default)
+    {
+        const string horizonSql =
+            "SELECT COALESCE(DATEDIFF(DAY, SYSUTCDATETIME(), MAX(DepartureTime)), -1) FROM dbo.Trips WHERE DepartureTime >= SYSUTCDATETIME();";
+        const string countSql = "SELECT COUNT(*) FROM dbo.Trips WHERE DepartureTime >= SYSUTCDATETIME();";
+
+        await Gate.WaitAsync(cancellationToken);
+        try
+        {
+            await using var connection = DatabaseHelper.GetConnection();
+            await connection.OpenAsync(cancellationToken);
+
+            await DatabaseHelper.EnsureBusCompaniesSyncedAsync();
+
+            var daysAhead = await ExecuteIntAsync(connection, horizonSql, cancellationToken);
+            if (daysAhead >= MinimumScheduleDaysAhead)
+                return 0;
+
+            var before = await ExecuteIntAsync(connection, countSql, cancellationToken);
+            var script = await LoadScriptAsync("DevSeedTrips.sql", cancellationToken);
+            await ExecuteBatchesAsync(connection, transaction: null, script, "DevSeedTrips.sql", cancellationToken);
+            var added = await ExecuteIntAsync(connection, countSql, cancellationToken) - before;
+
+            LoggerService.LogInfo(
+                $"Schedule top-up: only {daysAhead} day(s) of departures remained, added {added} trip(s) for the next two weeks.");
+            return added;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LoggerService.LogError("Could not top up the upcoming trip schedule.", ex);
+            return 0;
         }
         finally
         {
@@ -81,27 +136,27 @@ END;";
         if (skipWhenAccountsExist && await TableExistsAsync(connection, "Accounts", cancellationToken))
         {
             await RecordMigrationAsync(connection, name, cancellationToken);
+            LoggerService.LogWarning(
+                $"Migration '{name}' ({fileName}) was recorded as applied WITHOUT executing because table dbo.Accounts already exists. " +
+                $"The objects it would have created are therefore absent from this database: the CK_Tickets_Status / CK_Tickets_PaymentStatus " +
+                $"check constraints, the UX_Tickets_Active_Trip_Seat anti-double-booking unique index and the TR_Tickets_ValidateSeatBus " +
+                $"seat/bus trigger. Migration '008_SettlementHardening' ({nameof(DatabaseMigrator)} step 8) creates all of them idempotently.");
             return;
         }
 
-        var path = Path.Combine(AppContext.BaseDirectory, "Data", fileName);
-        if (!File.Exists(path))
-            throw new FileNotFoundException($"Migration script not found: {path}");
-        var script = NormalizeScript(await File.ReadAllTextAsync(path, cancellationToken));
+        var script = await LoadScriptAsync(fileName, cancellationToken);
         await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
         try
         {
-            foreach (var batch in SplitBatches(script))
-            {
-                if (string.IsNullOrWhiteSpace(batch)) continue;
-                await using var command = new SqlCommand(batch, connection, transaction);
-                await command.ExecuteNonQueryAsync(cancellationToken);
-            }
+            // The script and its history row commit together: a crash can never
+            // record a migration that did not run, nor run one it forgot.
+            await ExecuteBatchesAsync(connection, transaction, script, fileName, cancellationToken);
 
-            await using var record = new SqlCommand("INSERT INTO dbo.__DatabaseMigrations (ScriptName) VALUES (@ScriptName);", connection, transaction);
+            await using var record = new SqlCommand($"INSERT INTO dbo.{HistoryTable} (ScriptName) VALUES (@ScriptName);", connection, transaction);
             record.Parameters.Add("@ScriptName", SqlDbType.NVarChar, 255).Value = name;
             await record.ExecuteNonQueryAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            LoggerService.LogInfo($"Applied migration '{name}' ({fileName}).");
         }
         catch
         {
@@ -110,9 +165,45 @@ END;";
         }
     }
 
+    private static async Task<string> LoadScriptAsync(string fileName, CancellationToken cancellationToken)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Data", fileName);
+        if (!File.Exists(path))
+            throw new FileNotFoundException($"Migration script not found: {path}");
+        return NormalizeScript(await File.ReadAllTextAsync(path, cancellationToken));
+    }
+
+    private static async Task ExecuteBatchesAsync(SqlConnection connection, SqlTransaction? transaction, string script, string fileName, CancellationToken cancellationToken)
+    {
+        var batchIndex = 0;
+        foreach (var batch in SplitBatches(script))
+        {
+            if (string.IsNullOrWhiteSpace(batch)) continue;
+            batchIndex++;
+            try
+            {
+                await using var command = transaction is null
+                    ? new SqlCommand(batch, connection)
+                    : new SqlCommand(batch, connection, transaction);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                LoggerService.LogError($"Script '{fileName}' failed in batch {batchIndex}.", ex);
+                throw;
+            }
+        }
+    }
+
+    private static async Task<int> ExecuteIntAsync(SqlConnection connection, string sql, CancellationToken cancellationToken)
+    {
+        await using var command = new SqlCommand(sql, connection);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+    }
+
     private static async Task<bool> IsAppliedAsync(SqlConnection connection, string name, CancellationToken cancellationToken)
     {
-        await using var command = new SqlCommand("SELECT COUNT(1) FROM dbo.__DatabaseMigrations WHERE ScriptName=@ScriptName;", connection);
+        await using var command = new SqlCommand($"SELECT COUNT(1) FROM dbo.{HistoryTable} WHERE ScriptName=@ScriptName;", connection);
         command.Parameters.Add("@ScriptName", SqlDbType.NVarChar, 255).Value = name;
         return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) > 0;
     }
@@ -126,7 +217,7 @@ END;";
 
     private static async Task RecordMigrationAsync(SqlConnection connection, string name, CancellationToken cancellationToken)
     {
-        await using var command = new SqlCommand("INSERT INTO dbo.__DatabaseMigrations (ScriptName) VALUES (@ScriptName);", connection);
+        await using var command = new SqlCommand($"INSERT INTO dbo.{HistoryTable} (ScriptName) VALUES (@ScriptName);", connection);
         command.Parameters.Add("@ScriptName", SqlDbType.NVarChar, 255).Value = name;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -135,6 +226,18 @@ END;";
     {
         script = Regex.Replace(script, @"^\s*USE\s+[^;\r\n]+;\s*$", string.Empty, RegexOptions.Multiline | RegexOptions.IgnoreCase);
         return Regex.Replace(script, @"^\s*IF\s+DB_ID\([^)]+\)\s+IS\s+NULL\s+CREATE\s+DATABASE\s+[^;]+;\s*$", string.Empty, RegexOptions.Multiline | RegexOptions.IgnoreCase);
+    }
+    private static async Task EnsureStagePriceColumnsAsync(SqlConnection connection, CancellationToken cancellationToken)
+    {
+        const string sql = @"
+IF COL_LENGTH(N'dbo.Buses', N'StagePrice') IS NULL
+    ALTER TABLE dbo.Buses ADD StagePrice DECIMAL(10,0) NULL;
+
+IF COL_LENGTH(N'dbo.Trips', N'StagePrice') IS NULL
+    ALTER TABLE dbo.Trips ADD StagePrice DECIMAL(10,0) NULL;
+";
+        await using var cmd = new SqlCommand(sql, connection);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static IEnumerable<string> SplitBatches(string script) =>

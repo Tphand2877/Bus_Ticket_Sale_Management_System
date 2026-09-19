@@ -1,64 +1,59 @@
-using System.Windows;
-using BusTicketSaleSystem.Data;
 using BusTicketSaleSystem.Models;
+using BusTicketSaleSystem.ViewModels;
+using System.Windows;
+using System.Windows.Controls;
 
 namespace BusTicketSaleSystem.Views
 {
     /// <summary>
-    /// Interaction logic for LoginWindow.xaml
-    /// Runs as a separate initial window before MainWindow is opened.
+    /// Interaction logic for LoginWindow.xaml.
+    /// Runs as the initial window and owns nothing but window lifetime: authentication and role
+    /// routing decisions live in <see cref="LoginViewModel"/>.
     /// </summary>
     public partial class LoginWindow : Window
     {
+        private readonly LoginViewModel _viewModel = new();
+
         public LoginWindow()
         {
             InitializeComponent();
+            _viewModel.LoginSucceeded += OnLoginSucceeded;
+            _viewModel.SignUpRequested += OnSignUpRequested;
+            DataContext = _viewModel;
+
+            // Put the caret in the first field so the user can start typing immediately instead
+            // of having to click or Tab into it.
+            Loaded += (_, _) => TxtUsername.Focus();
         }
 
-        private async void LoginButton_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// WPF's <see cref="PasswordBox"/> deliberately does not expose a bindable password, so the
+        /// value is pushed into the ViewModel here. This is the only logic in this code-behind
+        /// besides window lifetime.
+        /// </summary>
+        private void PasswordBox_OnPasswordChanged(object sender, RoutedEventArgs e)
         {
-            var usernameOrEmail = TxtUsername.Text.Trim();
-            var password = TxtPassword.Password;
+            if (sender is PasswordBox box) _viewModel.Password = box.Password;
+        }
 
-            if (string.IsNullOrWhiteSpace(usernameOrEmail) || string.IsNullOrWhiteSpace(password))
-            {
-                TxtError.Text = "Vui lòng nhập tên đăng nhập/email và mật khẩu.";
-                TxtError.Visibility = Visibility.Visible;
-                return;
-            }
+        private void OnLoginSucceeded(UserSession account)
+        {
+            TxtPassword.Clear();
 
-            BtnLogin.IsEnabled = false;
-            TxtError.Visibility = Visibility.Collapsed;
+            Window next = string.Equals(account.Role, "Admin", StringComparison.OrdinalIgnoreCase)
+                ? new AdminWindow()
+                : new MainWindow();
 
-            var loginResult = await DatabaseHelper.AuthenticateAsync(usernameOrEmail, password);
-            if (!loginResult.Success)
-            {
-                TxtError.Text = loginResult.Error;
-                TxtError.Visibility = Visibility.Visible;
-                BtnLogin.IsEnabled = true;
-                return;
-            }
-
-            CurrentUser.Account = loginResult.Account;
-            if (CurrentUser.IsAdmin)
-            {
-                var adminWindow = new AdminWindow();
-                Application.Current.MainWindow = adminWindow;
-                adminWindow.Show();
-                Close();
-                return;
-            }
-
-            var mainWindow = new MainWindow();
-            Application.Current.MainWindow = mainWindow;
-            mainWindow.Show();
+            Application.Current.MainWindow = next;
+            next.Show();
             Close();
         }
 
-        private void SignUpButton_Click(object sender, RoutedEventArgs e)
+        private void OnSignUpRequested()
         {
             var signUpWindow = new SignUpWindow { Owner = this };
             signUpWindow.ShowDialog();
+            if (signUpWindow.SuccessNotice is { Length: > 0 } notice) _viewModel.StatusMessage = notice;
         }
     }
 }
