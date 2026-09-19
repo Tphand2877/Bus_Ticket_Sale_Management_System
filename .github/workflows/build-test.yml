@@ -5,6 +5,10 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
+  schedule:
+    # Nightly, so dependency advisories and toolchain drift surface without a push.
+    - cron: '17 2 * * *'
 
 permissions:
   contents: read
@@ -29,3 +33,15 @@ jobs:
 
       - name: Test
         run: dotnet test BusTicketSaleSystem.Tests/BusTicketSaleSystem.Tests.csproj --no-build --configuration Release --nologo --logger "trx;LogFileName=test-results.trx"
+
+      - name: Audit dependencies
+        run: dotnet list BusTicketSaleSystem.slnx package --vulnerable --include-transitive 2>&1 | tee audit.log; if grep -q 'has the following vulnerable packages' audit.log; then echo 'Vulnerable packages found.'; exit 1; fi
+        shell: bash
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/test-results.trx'
+          if-no-files-found: warn

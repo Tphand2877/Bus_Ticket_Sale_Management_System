@@ -11,6 +11,13 @@
 *.sln.docstates
 *.env
 
+# Local configuration overrides and secret stores (AUD-D-015).
+# appsettings.json itself stays tracked: it is the template every developer needs.
+appsettings.Development.json
+appsettings.Production.json
+appsettings.*.local.json
+secrets.json
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
