@@ -23,24 +23,59 @@ public static class DatabaseHelper
     private const string InvalidCredentialsMessage = "Incorrect username or password.";
     private const string DatabaseUnavailableMessage = "Could not connect to the database.";
 
+    private const string LockedOutMessage =
+        "Too many failed sign-in attempts. This account is locked for 15 minutes.";
+
+    /// <summary>Consecutive failures that trigger a lockout.</summary>
+    internal const int MaxFailedLoginAttempts = 5;
+
+    /// <summary>How long an account stays locked after <see cref="MaxFailedLoginAttempts"/> failures.</summary>
+    internal static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// Derivation performed when no account matches, so a miss costs the same as a
+    /// wrong password and cannot be used to enumerate accounts (AUD-D-011). The salt
+    /// and digest are fixed and match no real password.
+    /// </summary>
+    private static readonly string DummyHash =
+        $"{PasswordHashPrefix}${PasswordIterations}${Convert.ToBase64String(new byte[PasswordSaltBytes])}${Convert.ToBase64String(new byte[PasswordHashBytes])}";
+
     public static SqlConnection GetConnection() => new(DatabaseOptions.ConnectionString);
 
+    /// <summary>
+    /// Authenticates a customer or administrator.
+    /// </summary>
+    /// <remarks>
+    /// After <see cref="MaxFailedLoginAttempts"/> consecutive failures the account is
+    /// refused for <see cref="LockoutDuration"/> even when the password is correct
+    /// (AUD-D-003). Every failure is logged by account id — never by the typed
+    /// identifier, which may be an e-mail address. An unknown login pays the same
+    /// key-derivation cost as a wrong password so the response time reveals nothing
+    /// about whether the account exists (AUD-D-011).
+    /// </remarks>
     public static async Task<(bool Success, UserSession? Account, string? Error)> AuthenticateAsync(string usernameOrEmail, string password)
     {
-        const string sql = "SELECT TOP (1) AccountId, Username, FullName, Email, Phone, Role, PasswordHash FROM Accounts WHERE Username=@Login OR Email=@Login;";
+        const string sql = @"
+SELECT TOP (1) AccountId, Username, FullName, Email, Phone, Role, PasswordHash, FailedLoginCount, LockoutEndsAt
+FROM Accounts WHERE Username=@Login OR Email=@Login;";
         try
         {
             await using var connection = GetConnection();
             await connection.OpenAsync();
 
-            int accountId;
+            int accountId, failedCount;
             string username, fullName, role, storedHash;
             string? email, phone;
+            DateTime? lockoutEndsAt;
             await using (var command = new SqlCommand(sql, connection))
             {
                 command.Parameters.Add("@Login", SqlDbType.NVarChar, 100).Value = usernameOrEmail;
                 await using var reader = await command.ExecuteReaderAsync();
-                if (!await reader.ReadAsync()) return (false, null, InvalidCredentialsMessage);
+                if (!await reader.ReadAsync())
+                {
+                    VerifyPassword(password, DummyHash);
+                    return (false, null, InvalidCredentialsMessage);
+                }
                 accountId = reader.GetInt32(0);
                 username = reader.GetString(1);
                 fullName = reader.GetString(2);
@@ -48,9 +83,26 @@ public static class DatabaseHelper
                 phone = reader.IsDBNull(4) ? null : reader.GetString(4);
                 role = reader.IsDBNull(5) ? "Customer" : reader.GetString(5);
                 storedHash = reader.GetString(6);
+                failedCount = reader.GetInt32(7);
+                lockoutEndsAt = reader.IsDBNull(8) ? null : reader.GetDateTime(8);
             }
 
-            if (!VerifyPassword(password, storedHash)) return (false, null, InvalidCredentialsMessage);
+            if (lockoutEndsAt > DateTime.UtcNow)
+            {
+                LoggerService.LogWarning($"Sign-in refused for account {accountId}: locked until {lockoutEndsAt:u}.");
+                return (false, null, LockedOutMessage);
+            }
+
+            if (!VerifyPassword(password, storedHash))
+            {
+                var attempts = await RecordFailedLoginAsync(connection, accountId);
+                LoggerService.LogWarning(attempts >= MaxFailedLoginAttempts
+                    ? $"Sign-in failed for account {accountId}: attempt {attempts}, account locked for {LockoutDuration.TotalMinutes:0} minute(s)."
+                    : $"Sign-in failed for account {accountId}: attempt {attempts}.");
+                return (false, null, attempts >= MaxFailedLoginAttempts ? LockedOutMessage : InvalidCredentialsMessage);
+            }
+
+            await ClearFailedLoginsAsync(connection, accountId, failedCount, lockoutEndsAt);
 
             // A successful login is the only moment the plaintext is available,
             // so it is also the only chance to migrate an outdated hash format.
@@ -61,9 +113,42 @@ public static class DatabaseHelper
         }
         catch (SqlException ex)
         {
-            LoggerService.LogError($"Could not authenticate '{usernameOrEmail}'.", ex);
+            LoggerService.LogError("Could not authenticate: the account store is unavailable.", ex);
             return (false, null, DatabaseUnavailableMessage);
         }
+    }
+
+    /// <summary>
+    /// Counts the failure and locks the account once the limit is reached.
+    /// Returns the new consecutive-failure count.
+    /// </summary>
+    private static async Task<int> RecordFailedLoginAsync(SqlConnection connection, int accountId)
+    {
+        const string sql = @"
+UPDATE Accounts
+SET FailedLoginCount = FailedLoginCount + 1,
+    LockoutEndsAt = CASE WHEN FailedLoginCount + 1 >= @Limit
+                         THEN DATEADD(MINUTE, @Minutes, SYSUTCDATETIME())
+                         ELSE LockoutEndsAt END
+OUTPUT INSERTED.FailedLoginCount
+WHERE AccountId = @AccountId;";
+
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.Add("@AccountId", SqlDbType.Int).Value = accountId;
+        command.Parameters.Add("@Limit", SqlDbType.Int).Value = MaxFailedLoginAttempts;
+        command.Parameters.Add("@Minutes", SqlDbType.Int).Value = (int)LockoutDuration.TotalMinutes;
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
+    }
+
+    /// <summary>Resets the counter after a successful sign-in, writing only when needed.</summary>
+    private static async Task ClearFailedLoginsAsync(SqlConnection connection, int accountId, int failedCount, DateTime? lockoutEndsAt)
+    {
+        if (failedCount == 0 && lockoutEndsAt is null) return;
+
+        const string sql = "UPDATE Accounts SET FailedLoginCount = 0, LockoutEndsAt = NULL WHERE AccountId = @AccountId;";
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.Add("@AccountId", SqlDbType.Int).Value = accountId;
+        await command.ExecuteNonQueryAsync();
     }
 
     public static async Task<(bool Success, string? Error)> CreateAccountAsync(string username, string password, string fullName, string? phone, string? email)
