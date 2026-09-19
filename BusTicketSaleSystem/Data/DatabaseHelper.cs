@@ -661,9 +661,33 @@ WHERE EXISTS(SELECT 1 FROM Seats s JOIN Trips tr ON tr.BusId=s.BusId WHERE tr.Tr
         }
         catch (SqlException ex)
         {
-            await transaction.RollbackAsync();
+            await RollbackQuietlyAsync(transaction);
             LoggerService.LogError($"Could not book {requestedSeatIds.Length} seat(s) (account={accountId}, trip={tripId}).", ex);
-            return (false, null, "Could not book the selected seats. Check the database connection and trip data.");
+
+            // 2601/2627: the (TripId, SeatId) uniqueness object refused the write.
+            // 51001/51002: a TicketSeats trigger refused it. 1205: this session lost
+            // the race as the deadlock victim. All four mean the same thing to the
+            // customer, and none of them is a connection problem.
+            return ex.Number is 2601 or 2627 or 1205 or 51001 or 51002
+                ? (false, null, "One of the selected seats has just been taken or is not valid for this trip.")
+                : (false, null, "Could not book the selected seats. Check the database connection and trip data.");
+        }
+    }
+
+    /// <summary>
+    /// Rolls back unless the server already did. A trigger or an aborting error can
+    /// end the transaction server-side, after which <see cref="SqlTransaction.RollbackAsync"/>
+    /// throws <see cref="InvalidOperationException"/> and would mask the real failure.
+    /// </summary>
+    private static async Task RollbackQuietlyAsync(SqlTransaction transaction)
+    {
+        try
+        {
+            await transaction.RollbackAsync();
+        }
+        catch (InvalidOperationException)
+        {
+            // Already rolled back by the server; nothing left to undo.
         }
     }
 
@@ -940,27 +964,27 @@ JOIN Buses b ON b.BusId = tr.BusId";
     }
 
     /// <summary>
-    /// Accepts the current self-describing format and every format that ever
-    /// reached the database: the first PBKDF2 format (<c>PBKDF2$...</c>) and the
-    /// plaintext passwords stored before hashing existed. Outdated formats are
-    /// re-hashed on the next successful login, see
-    /// <see cref="AuthenticateAsync"/>.
+    /// Accepts the current self-describing format and the first PBKDF2 format
+    /// (<c>PBKDF2$...</c>); the latter is re-hashed on the next successful login,
+    /// see <see cref="AuthenticateAsync"/>.
     /// </summary>
+    /// <remarks>
+    /// Anything that is not a derived hash is rejected. Plaintext values used to
+    /// authenticate here, which meant that writing an arbitrary string into
+    /// <c>Accounts.PasswordHash</c> yielded a working password for that account
+    /// (AUD-D-002). No stored value is modified by this check: an account whose
+    /// hash is not in a recognised format needs an administrative password reset.
+    /// </remarks>
     internal static bool VerifyPassword(string password, string? stored)
     {
         if (string.IsNullOrEmpty(password) || string.IsNullOrWhiteSpace(stored))
             return false;
 
-        if (TrySplitDerivedHash(stored, out var iterations, out var salt, out var expected))
-        {
-            var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, expected.Length);
-            return CryptographicOperations.FixedTimeEquals(actual, expected);
-        }
-
-        if (LooksLikeDerivedHash(stored))
+        if (!TrySplitDerivedHash(stored, out var iterations, out var salt, out var expected))
             return false;
 
-        return CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(password), Encoding.UTF8.GetBytes(stored));
+        var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, expected.Length);
+        return CryptographicOperations.FixedTimeEquals(actual, expected);
     }
 
     /// <summary>

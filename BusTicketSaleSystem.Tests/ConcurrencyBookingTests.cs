@@ -60,6 +60,30 @@ public sealed class ConcurrencyBookingTests(SqlServerFixture fixture)
     }
 
     /// <summary>
+    /// AUD-W1-04: when the seat is taken between the guard and the insert, the caller
+    /// must receive the controlled message. Previously the trigger's
+    /// ROLLBACK TRANSACTION made the ambient rollback throw InvalidOperationException.
+    /// </summary>
+    [SkippableFact]
+    public async Task BookTicketsAsync_SeatTakenByAnotherWriter_ReturnsControlledFailure()
+    {
+        _fixture.SkipIfUnavailable();
+
+        var (tripId, seatIds) = await _fixture.CreateTripAsync();
+        var seatId = seatIds[0];
+
+        var first = await DatabaseHelper.BookTicketAsync(_fixture.AccountIds[0], tripId, seatId, "Holder", null);
+        Assert.True(first.Success, first.Error);
+
+        var second = await DatabaseHelper.BookTicketAsync(_fixture.AccountIds[1], tripId, seatId, "Latecomer", null);
+
+        Assert.False(second.Success);
+        Assert.Null(second.Ticket);
+        Assert.Contains("has just been taken", second.Error);
+        Assert.Equal(1, await _fixture.CountActiveSeatHoldersAsync(tripId, seatId));
+    }
+
+    /// <summary>
     /// The invariant must survive the UI, the application layer and the isolation level
     /// being bypassed: two raw SQL sessions inserting the same seat must not both commit.
     /// Before AUD-W1-03 this failed under READ_COMMITTED_SNAPSHOT, which is a routine
