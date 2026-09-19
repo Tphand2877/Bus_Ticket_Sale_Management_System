@@ -919,11 +919,13 @@ END;";
         RequireAdmin();
         const string sql = @"
 SET NOCOUNT ON;
-IF NOT EXISTS (SELECT 1 FROM Buses WHERE BusId = @Id)
+SET XACT_ABORT ON;  /* without this a failing DELETE leaves the batch running and
+                       COMMIT would persist the seat wipe while reporting success */
+IF NOT EXISTS (SELECT 1 FROM Buses WITH (UPDLOCK, HOLDLOCK) WHERE BusId = @Id)
     SELECT 1;
-ELSE IF EXISTS (SELECT 1 FROM Trips WHERE BusId = @Id)
+ELSE IF EXISTS (SELECT 1 FROM Trips WITH (UPDLOCK, HOLDLOCK) WHERE BusId = @Id)
     SELECT 2;
-ELSE IF EXISTS (SELECT 1 FROM TicketSeats ts JOIN Seats s ON s.SeatId = ts.SeatId WHERE s.BusId = @Id)
+ELSE IF EXISTS (SELECT 1 FROM TicketSeats ts WITH (UPDLOCK, HOLDLOCK) JOIN Seats s ON s.SeatId = ts.SeatId WHERE s.BusId = @Id)
     SELECT 3;
 ELSE
 BEGIN
@@ -982,11 +984,17 @@ ORDER BY t.DepartureTime DESC;";
         if (arrival <= departure) return (false, "Arrival must be later than departure.");
         if (price < 0) return (false, "Fare cannot be negative.");
         const string sql = @"
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
 INSERT INTO Trips (RouteId, BusId, DepartureTime, ArrivalTime, Price)
 SELECT @Route, @Bus, @Departure, @Arrival, @Price
 WHERE EXISTS (SELECT 1 FROM Routes WHERE RouteId = @Route)
   AND EXISTS (SELECT 1 FROM Buses WHERE BusId = @Bus)
-  AND NOT EXISTS (SELECT 1 FROM Trips WHERE BusId = @Bus AND DepartureTime < @Arrival AND ArrivalTime > @Departure);";
+  /* HOLDLOCK keeps the range locked until commit, so two admins cannot both pass
+     the overlap check and schedule one bus onto two simultaneous trips. */
+  AND NOT EXISTS (SELECT 1 FROM Trips WITH (UPDLOCK, HOLDLOCK)
+                  WHERE BusId = @Bus AND DepartureTime < @Arrival AND ArrivalTime > @Departure);
+COMMIT TRANSACTION;";
         try
         {
             await using var connection = DatabaseHelper.GetConnection();
@@ -1003,6 +1011,11 @@ WHERE EXISTS (SELECT 1 FROM Routes WHERE RouteId = @Route)
             return await command.ExecuteNonQueryAsync() == 1
                 ? (true, null)
                 : (false, "That bus already runs an overlapping trip, or the route/bus is invalid.");
+        }
+        catch (SqlException ex) when (ex.Number is 2601 or 2627)
+        {
+            // UX_Trips_Bus_Departure: another admin scheduled this exact slot first.
+            return (false, "That bus already runs an overlapping trip, or the route/bus is invalid.");
         }
         catch (SqlException ex)
         {

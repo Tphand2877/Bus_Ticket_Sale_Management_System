@@ -87,30 +87,51 @@ VALUES(@TicketId,@TransactionNoInput,N'Cash',NULL,@OrderInfo,N'Cash',@Amount,N'P
 SET @PaymentId = CAST(SCOPE_IDENTITY() AS int);
 UPDATE Tickets SET PaymentExpiresAt=@Departure WHERE TicketId=@TicketId;
 SELECT @PaymentId, @Amount;";
+        SqlTransaction? transaction = null;
         try
         {
             var transactionNo = $"CASH{DateTime.UtcNow:yyyyMMddHHmmssfff}{RandomNumberGenerator.GetInt32(1000, 9999)}";
             await using var connection = DatabaseHelper.GetConnection();
             await connection.OpenAsync();
-            await using var command = new SqlCommand(cashSql, connection);
+            // Serializable, like the VNPay path: in autocommit the guard's
+            // UPDLOCK/HOLDLOCK is released at statement end, so two concurrent
+            // calls could both pass it and insert a Pending row (AUD-C-002).
+            transaction = (SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.Serializable);
+            await using var command = new SqlCommand(cashSql, connection, transaction);
             command.Parameters.Add("@TicketId", SqlDbType.Int).Value = request.TicketId;
             command.Parameters.Add("@TicketCode", SqlDbType.NVarChar, 30).Value = request.TicketCode;
             command.Parameters.Add("@TransactionNoInput", SqlDbType.NVarChar, 100).Value = transactionNo;
             command.Parameters.Add("@OrderInfo", SqlDbType.NVarChar, 255).Value = $"Cash on board for ticket {request.TicketCode}";
-            await using var reader = await command.ExecuteReaderAsync();
-            if (!await reader.ReadAsync()) return new(false, ErrorMessage: "The cash payment could not be registered.");
-            return new(true, reader.GetInt32(0), transactionNo, null);
+
+            int paymentId;
+            await using (var reader = await command.ExecuteReaderAsync())
+            {
+                if (!await reader.ReadAsync())
+                {
+                    await RollbackQuietlyAsync(transaction);
+                    return new(false, ErrorMessage: "The cash payment could not be registered.");
+                }
+                paymentId = reader.GetInt32(0);
+            }
+
+            await transaction.CommitAsync();
+            return new(true, paymentId, transactionNo, null);
         }
         catch (SqlException ex) when (ex.Number == 51010)
-        { return new(false, ErrorMessage: "The seat hold has expired or the ticket is no longer payable."); }
-        catch (SqlException ex) when (ex.Number == 51011)
-        { return new(false, ErrorMessage: "A payment already exists for this ticket."); }
+        { await RollbackQuietlyAsync(transaction); return new(false, ErrorMessage: "The seat hold has expired or the ticket is no longer payable."); }
+        catch (SqlException ex) when (ex.Number is 51011 or 2601 or 2627)
+        { await RollbackQuietlyAsync(transaction); return new(false, ErrorMessage: "A payment already exists for this ticket."); }
         catch (SqlException ex) when (ex.Number == 51012)
-        { return new(false, ErrorMessage: "This trip has already departed, so cash on board is no longer possible."); }
+        { await RollbackQuietlyAsync(transaction); return new(false, ErrorMessage: "This trip has already departed, so cash on board is no longer possible."); }
         catch (SqlException ex)
         {
+            await RollbackQuietlyAsync(transaction);
             LoggerService.LogError($"Could not create a cash payment for ticket {request.TicketCode}.", ex);
             return new(false, ErrorMessage: "The cash payment could not be registered.");
+        }
+        finally
+        {
+            if (transaction is not null) await transaction.DisposeAsync();
         }
     }
 
@@ -122,28 +143,48 @@ INSERT INTO Payments(TicketId,TransactionNo,Provider,ProviderTransactionNo,Order
 VALUES(@TicketId,@TransactionNoInput,N'BankTransfer',NULL,@OrderInfo,N'BankTransfer',@Amount,N'Pending');
 SET @PaymentId = CAST(SCOPE_IDENTITY() AS int);
 SELECT @PaymentId, @Amount;";
+        SqlTransaction? transaction = null;
         try
         {
             var transactionNo = $"BANK{DateTime.UtcNow:yyyyMMddHHmmssfff}{RandomNumberGenerator.GetInt32(1000, 9999)}";
             await using var connection = DatabaseHelper.GetConnection();
             await connection.OpenAsync();
-            await using var command = new SqlCommand(bankTransferSql, connection);
+            // See CreateCashPaymentAsync: the guard is only atomic with the insert
+            // inside an explicit transaction (AUD-C-002).
+            transaction = (SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.Serializable);
+            await using var command = new SqlCommand(bankTransferSql, connection, transaction);
             command.Parameters.Add("@TicketId", SqlDbType.Int).Value = request.TicketId;
             command.Parameters.Add("@TicketCode", SqlDbType.NVarChar, 30).Value = request.TicketCode;
             command.Parameters.Add("@TransactionNoInput", SqlDbType.NVarChar, 100).Value = transactionNo;
             command.Parameters.Add("@OrderInfo", SqlDbType.NVarChar, 255).Value = $"Bank transfer for ticket {request.TicketCode}";
-            await using var reader = await command.ExecuteReaderAsync();
-            if (!await reader.ReadAsync()) return new(false, ErrorMessage: "The bank transfer could not be registered.");
-            return new(true, reader.GetInt32(0), transactionNo, null);
+
+            int paymentId;
+            await using (var reader = await command.ExecuteReaderAsync())
+            {
+                if (!await reader.ReadAsync())
+                {
+                    await RollbackQuietlyAsync(transaction);
+                    return new(false, ErrorMessage: "The bank transfer could not be registered.");
+                }
+                paymentId = reader.GetInt32(0);
+            }
+
+            await transaction.CommitAsync();
+            return new(true, paymentId, transactionNo, null);
         }
         catch (SqlException ex) when (ex.Number == 51010)
-        { return new(false, ErrorMessage: "The seat hold has expired or the ticket is no longer payable."); }
-        catch (SqlException ex) when (ex.Number == 51011)
-        { return new(false, ErrorMessage: "A payment already exists for this ticket."); }
+        { await RollbackQuietlyAsync(transaction); return new(false, ErrorMessage: "The seat hold has expired or the ticket is no longer payable."); }
+        catch (SqlException ex) when (ex.Number is 51011 or 2601 or 2627)
+        { await RollbackQuietlyAsync(transaction); return new(false, ErrorMessage: "A payment already exists for this ticket."); }
         catch (SqlException ex)
         {
+            await RollbackQuietlyAsync(transaction);
             LoggerService.LogError($"Could not create a bank transfer payment for ticket {request.TicketCode}.", ex);
             return new(false, ErrorMessage: "The bank transfer could not be registered.");
+        }
+        finally
+        {
+            if (transaction is not null) await transaction.DisposeAsync();
         }
     }
 
