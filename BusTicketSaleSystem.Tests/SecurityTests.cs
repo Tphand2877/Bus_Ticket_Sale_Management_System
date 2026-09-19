@@ -58,4 +58,20 @@ public sealed class SecurityTests
         Assert.True(DatabaseHelper.VerifyPassword("LegacyPassword123", legacy));
         Assert.False(DatabaseHelper.VerifyPassword("WrongPassword", legacy));
     }
+
+    /// <summary>
+    /// AUD-D-002: a stored value that is not a derived hash must never authenticate.
+    /// Before the fix, writing an arbitrary string into Accounts.PasswordHash made
+    /// that string a working password for the account.
+    /// </summary>
+    [Theory]
+    [InlineData("x")]
+    [InlineData("password")]
+    [InlineData("PBKDF2-SHA256")]
+    [InlineData("PBKDF2-SHA256$310000$notbase64$alsonotbase64")]
+    [InlineData("PBKDF2-SHA256$0$c2FsdA==$aGFzaA==")]
+    public void VerifyPassword_RejectsStoredValueThatIsNotADerivedHash(string stored)
+    {
+        Assert.False(DatabaseHelper.VerifyPassword(stored, stored));
+    }
 }
