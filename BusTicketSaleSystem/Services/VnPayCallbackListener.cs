@@ -111,31 +111,51 @@ public static class VnPayCallbackListener
                 return;
             }
 
-            try
+            // Handled off the accept loop: a slow or hung callback must not delay
+            // the genuine gateway return behind it until the seat hold expires.
+            _ = Task.Run(async () =>
             {
-                await HandleAsync(context);
-            }
-            catch (Exception ex)
-            {
-                LoggerService.LogError("VNPay return callback could not be handled.", ex);
-                TryWrite(context, "Payment status unavailable",
-                    "We could not read the payment result. Please check your booking in the app.");
-            }
+                try
+                {
+                    await HandleAsync(context);
+                }
+                catch (Exception ex)
+                {
+                    LoggerService.LogError("VNPay return callback could not be handled.", ex);
+                    TryWrite(context, "Payment status unavailable",
+                        "We could not read the payment result. Please check your booking in the app.");
+                }
+            }, CancellationToken.None);
         }
     }
 
     private static async Task HandleAsync(HttpListenerContext context)
     {
-        var query = ParseQuery(context.Request.Url?.Query);
-        var transactionNo = query.GetValueOrDefault("vnp_TxnRef", string.Empty);
-        LoggerService.LogInfo($"VNPay return received for {(transactionNo.Length == 0 ? "an unknown reference" : transactionNo)} " +
-                              $"with {query.Count} field(s).");
+        // The endpoint is unauthenticated and reachable from any local process and
+        // any page the operator visits, so reject what VNPay never sends before
+        // touching the database.
+        if (!string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+        {
+            TryWrite(context, "Not supported", "This address only accepts VNPay payment returns.", 405);
+            return;
+        }
 
+        var host = context.Request.Headers["Host"];
+        if (!string.IsNullOrEmpty(host) && !host.StartsWith("127.0.0.1", StringComparison.Ordinal) &&
+            !host.StartsWith("localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            TryWrite(context, "Not supported", "This address only accepts VNPay payment returns.", 400);
+            return;
+        }
+
+        var query = ParseQuery(context.Request.Url?.Query);
         if (query.Count == 0)
         {
             TryWrite(context, "Nothing to verify", "This address only accepts VNPay payment returns.");
             return;
         }
+
+        var transactionNo = query.GetValueOrDefault("vnp_TxnRef", string.Empty);
 
         var verification = await PaymentService.VerifyVnPayCallbackAsync(query);
         if (verification.IsSuccess)
@@ -151,7 +171,9 @@ public static class VnPayCallbackListener
                 $"{verification.ErrorMessage ?? "The payment was not completed."} You can close this window and return to the app.");
         }
 
-        LoggerService.LogInfo($"VNPay return for {transactionNo} settled: success={verification.IsSuccess}, alreadyProcessed={verification.AlreadyProcessed}.");
+        LoggerService.LogInfo(
+            $"VNPay return for {SanitizeForLog(transactionNo)} settled: " +
+            $"success={verification.IsSuccess}, alreadyProcessed={verification.AlreadyProcessed}.");
 
         if (transactionNo.Length == 0) return;
         try
@@ -160,11 +182,23 @@ public static class VnPayCallbackListener
         }
         catch (Exception ex)
         {
-            LoggerService.LogError($"A VNPay settlement subscriber failed for {transactionNo}.", ex);
+            LoggerService.LogError($"A VNPay settlement subscriber failed for {SanitizeForLog(transactionNo)}.", ex);
         }
     }
 
-    private static void TryWrite(HttpListenerContext context, string heading, string message)
+    /// <summary>
+    /// Request values reach the log file, which is this system's only audit trail.
+    /// Control characters would let an unauthenticated caller forge whole log lines,
+    /// so they are stripped and the value is capped (AUD-D-006).
+    /// </summary>
+    private static string SanitizeForLog(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "an unknown reference";
+        var cleaned = new string(value.Where(c => !char.IsControl(c)).Take(64).ToArray());
+        return cleaned.Length == 0 ? "an unprintable reference" : cleaned;
+    }
+
+    private static void TryWrite(HttpListenerContext context, string heading, string message, int statusCode = 200)
     {
         try
         {
@@ -177,7 +211,7 @@ public static class VnPayCallbackListener
                 </body></html>
                 """;
             var payload = Encoding.UTF8.GetBytes(html);
-            context.Response.StatusCode = 200;
+            context.Response.StatusCode = statusCode;
             context.Response.ContentType = "text/html; charset=utf-8";
             context.Response.ContentLength64 = payload.LongLength;
             context.Response.OutputStream.Write(payload, 0, payload.Length);
