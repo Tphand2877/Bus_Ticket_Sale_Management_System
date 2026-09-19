@@ -1137,7 +1137,11 @@ JOIN Buses b ON b.BusId = tr.BusId";
         return ValidateContact(email, phone, out error);
     }
 
-    private static bool ValidatePassword(string password, out string error)
+    /// <summary>
+    /// The single password policy. Used by registration, self-service change and the
+    /// administrative reset, which previously enforced length only (AUD-D-013).
+    /// </summary>
+    internal static bool ValidatePassword(string password, out string error)
     {
         if (password.Length < 8 || password.Length > 128 || !password.Any(char.IsUpper) || !password.Any(char.IsLower) || !password.Any(char.IsDigit))
         { error = "Password must be 8-128 characters and include an uppercase letter, a lowercase letter and a digit."; return false; }

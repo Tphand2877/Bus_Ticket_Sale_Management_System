@@ -1146,7 +1146,11 @@ END;";
             await using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@Id", SqlDbType.Int).Value = accountId;
             command.Parameters.Add("@Role", SqlDbType.NVarChar, 20).Value = newRole;
-            return await command.ExecuteNonQueryAsync() == 1 ? (true, null) : (false, "That account no longer exists.");
+            if (await command.ExecuteNonQueryAsync() != 1) return (false, "That account no longer exists.");
+            // A privilege grant is the most security-relevant admin action; it used to
+            // leave no trace at all on the success path (AUD-D-009).
+            LoggerService.LogInfo($"Admin {CurrentUser.Account?.AccountId} set the role of account {accountId} to {newRole}.");
+            return (true, null);
         }
         catch (SqlException ex)
         {
@@ -1159,8 +1163,10 @@ END;";
     public static async Task<(bool Success, string? Error)> ResetAccountPasswordAsync(int accountId, string newPassword)
     {
         RequireAdmin();
-        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
-            return (false, "The new password must be at least 8 characters long.");
+        if (string.IsNullOrWhiteSpace(newPassword))
+            return (false, "The new password must be 8-128 characters and include an uppercase letter, a lowercase letter and a digit.");
+        if (!DatabaseHelper.ValidatePassword(newPassword, out var policyError))
+            return (false, policyError);
 
         const string sql = "UPDATE Accounts SET PasswordHash = @Hash WHERE AccountId = @Id;";
         try
