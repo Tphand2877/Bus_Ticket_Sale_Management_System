@@ -38,6 +38,7 @@ public static class DatabaseMigrator
             await ApplyMigrationAsync(connection, "008_SettlementHardening", "Migration_005_Settlement.sql", skipWhenAccountsExist: false, cancellationToken);
             await ApplyMigrationAsync(connection, "009_MultiSeatTicket", "Migration_006_MultiSeatTicket.sql", skipWhenAccountsExist: false, cancellationToken);
             await ApplyMigrationAsync(connection, "010_BusCompanyAndRegistration", "Migration_007_BusCompanyAndRegistration.sql", skipWhenAccountsExist: false, cancellationToken);
+            await ApplyMigrationAsync(connection, "011_SeatUniqueness", "Migration_008_SeatUniqueness.sql", skipWhenAccountsExist: false, cancellationToken);
             await EnsureStagePriceColumnsAsync(connection, cancellationToken);
             return true;
         }
