@@ -7,7 +7,7 @@ using System.Windows.Input;
 
 namespace BusTicketSaleSystem.ViewModels;
 
-public sealed class HomeViewModel : ViewModelBase, IRefreshable
+public sealed class HomeViewModel : ViewModelBase, IRefreshable, IDisposable
 {
     private readonly INavigationService _navigationService;
     private string _origin = string.Empty;
@@ -80,15 +80,7 @@ public sealed class HomeViewModel : ViewModelBase, IRefreshable
     {
         _navigationService = navigationService;
         _origin = LocationService.Instance.CurrentLocation;
-        LocationService.Instance.LocationChanged += (_, _) =>
-        {
-            var target = LocationService.Instance.CurrentLocation;
-            var match = Origins.FirstOrDefault(o => o.Contains(target, StringComparison.OrdinalIgnoreCase));
-            if (match != null)
-            {
-                Origin = match;
-            }
-        };
+        LocationService.Instance.LocationChanged += OnLocationChanged;
         SearchCommand = new RelayCommand(() => _navigationService.NavigateTo<BookingViewModel>());
         QuickBookCommand = new RelayCommand(_ => _navigationService.NavigateTo<BookingViewModel>());
         ViewTicketCommand = new RelayCommand(() => _navigationService.NavigateTo<MyTicketsViewModel>());
@@ -214,4 +206,21 @@ public sealed class HomeViewModel : ViewModelBase, IRefreshable
             StatusMessage = "Popular routes could not be loaded.";
         }
     }
+
+    private void OnLocationChanged(object? sender, EventArgs e)
+    {
+        var target = LocationService.Instance.CurrentLocation;
+        var match = Origins.FirstOrDefault(o => o.Contains(target, StringComparison.OrdinalIgnoreCase));
+        if (match != null)
+        {
+            Origin = match;
+        }
+    }
+
+    /// <summary>
+    /// Releases the singleton subscription. Without it the process-lifetime
+    /// LocationService kept one dead HomeViewModel per navigation alive, and each of
+    /// them still ran a database query on every location change (AUD-E-002).
+    /// </summary>
+    public void Dispose() => LocationService.Instance.LocationChanged -= OnLocationChanged;
 }

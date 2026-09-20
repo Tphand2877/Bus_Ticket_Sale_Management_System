@@ -7,7 +7,7 @@ namespace BusTicketSaleSystem.ViewModels;
 /// <summary>
 /// Adapts the singleton <see cref="NotificationService"/> to bindings for the shell toast.
 /// </summary>
-public sealed class NotificationHostViewModel : ViewModelBase
+public sealed class NotificationHostViewModel : ViewModelBase, IDisposable
 {
     private readonly NotificationService _notifications = NotificationService.Instance;
 
@@ -29,4 +29,10 @@ public sealed class NotificationHostViewModel : ViewModelBase
         OnPropertyChanged(nameof(Kind));
         OnPropertyChanged(nameof(IsVisible));
     }
+
+    /// <summary>
+    /// Releases the singleton subscription. Each shell creation — every login and
+    /// logout cycle — used to add a permanently rooted handler (AUD-E-003).
+    /// </summary>
+    public void Dispose() => _notifications.Changed -= OnNotificationChanged;
 }

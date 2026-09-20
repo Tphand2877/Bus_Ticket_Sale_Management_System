@@ -7,7 +7,7 @@ using System.Windows.Input;
 
 namespace BusTicketSaleSystem.ViewModels;
 
-public sealed class BookingViewModel : ViewModelBase, IRefreshable
+public sealed class BookingViewModel : ViewModelBase, IRefreshable, IDisposable
 {
     private readonly INavigationService _navigationService;
     private bool _isBusy;
@@ -39,11 +39,7 @@ public sealed class BookingViewModel : ViewModelBase, IRefreshable
     public BookingViewModel(INavigationService navigationService)
     {
         _navigationService = navigationService;
-        LocationService.Instance.LocationChanged += (_, _) =>
-        {
-            OnPropertyChanged(nameof(ActiveLocation));
-            OnPropertyChanged(nameof(LocationBanner));
-        };
+        LocationService.Instance.LocationChanged += OnLocationChanged;
         RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
         SelectCompanyCommand = new RelayCommand(parameter =>
         {
@@ -83,4 +79,13 @@ public sealed class BookingViewModel : ViewModelBase, IRefreshable
             OnPropertyChanged(nameof(HasNoCompanies));
         }
     }
+
+    private void OnLocationChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(ActiveLocation));
+        OnPropertyChanged(nameof(LocationBanner));
+    }
+
+    /// <summary>Releases the singleton subscription this screen takes (AUD-E-002).</summary>
+    public void Dispose() => LocationService.Instance.LocationChanged -= OnLocationChanged;
 }

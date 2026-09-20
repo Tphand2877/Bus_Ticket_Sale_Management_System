@@ -7,7 +7,7 @@ using System.Windows.Input;
 
 namespace BusTicketSaleSystem.ViewModels;
 
-public sealed class ProfileViewModel : ViewModelBase, IRefreshable
+public sealed class ProfileViewModel : ViewModelBase, IRefreshable, IDisposable
 {
     private string _fullName = string.Empty;
     private string _email = string.Empty;
@@ -55,13 +55,18 @@ public sealed class ProfileViewModel : ViewModelBase, IRefreshable
         SelectVietnameseCommand = new RelayCommand(() => LocalizationService.Instance.SetLanguage(LocalizationService.Vietnamese));
         SelectEnglishCommand = new RelayCommand(() => LocalizationService.Instance.SetLanguage(LocalizationService.English));
         ToggleLanguageCommand = new RelayCommand(() => LocalizationService.Instance.ToggleLanguage());
-        LocalizationService.Instance.LanguageChanged += _ =>
-        {
-            OnPropertyChanged(nameof(IsVietnamese));
-            OnPropertyChanged(nameof(IsEnglish));
-            OnPropertyChanged(nameof(CurrentLanguageName));
-        };
+        LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
     }
+
+    private void OnLanguageChanged(string language)
+    {
+        OnPropertyChanged(nameof(IsVietnamese));
+        OnPropertyChanged(nameof(IsEnglish));
+        OnPropertyChanged(nameof(CurrentLanguageName));
+    }
+
+    /// <summary>Releases the singleton subscription this screen takes (AUD-E-002).</summary>
+    public void Dispose() => LocalizationService.Instance.LanguageChanged -= OnLanguageChanged;
     /// <summary>Re-reads the signed-in account so the form never shows values from an earlier session.</summary>
     public Task RefreshAsync()
     {

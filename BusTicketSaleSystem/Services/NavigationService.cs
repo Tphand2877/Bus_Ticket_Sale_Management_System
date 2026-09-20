@@ -77,11 +77,38 @@ namespace BusTicketSaleSystem.Services
 
         private void Activate(ViewModelBase viewModel)
         {
+            var outgoing = CurrentViewModel;
             CurrentViewModel = viewModel;
+
+            // The navigator replaces ViewModels, so the navigator owns their end of
+            // life. Without this, every screen that subscribes to a singleton service
+            // or runs a timer leaked one live instance per navigation, and those dead
+            // instances kept issuing database queries (AUD-E-002, AUD-E-005).
+            DisposeIfTransient(outgoing, viewModel);
 
             if (viewModel is IRefreshable refreshable)
             {
                 _ = RefreshSafelyAsync(refreshable);
+            }
+        }
+
+        /// <summary>
+        /// Disposes the ViewModel we navigated away from, unless it is the one we just
+        /// navigated to or a registered singleton the shell keeps alive.
+        /// </summary>
+        private void DisposeIfTransient(ViewModelBase? outgoing, ViewModelBase incoming)
+        {
+            if (outgoing is null || ReferenceEquals(outgoing, incoming)) return;
+            if (outgoing is not IDisposable disposable) return;
+            if (_singletons.ContainsValue(outgoing)) return;
+
+            try
+            {
+                disposable.Dispose();
+            }
+            catch (Exception ex)
+            {
+                LoggerService.LogError($"Disposing {outgoing.GetType().Name} after navigation failed.", ex);
             }
         }
 
