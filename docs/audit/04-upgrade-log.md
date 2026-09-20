@@ -6,6 +6,13 @@ Declared databases in use: Dev `localhost/BusTicketSaleSystem` (migrated, never 
 
 ---
 
+
+## Scope decision — VNPay (2026-09-20, owner)
+
+No VNPay merchant subscription exists, so **no further VNPay work is performed**. `AUD-WX-06` is `SKIPPED`; any remaining VNPay-flavoured findings (IPN reconciliation, `vnp_QueryDr`, enabling the payment option) are out of scope until a subscription exists.
+
+The VNPay fixes already landed in Wave 1 — `AUD-W1-07` (require `vnp_TransactionStatus`), `AUD-W1-08` (late capture queued for refund), `AUD-W1-09` (decline releases the hold) and `AUD-W1-16` (loopback endpoint hardening) — are **kept**. They cost nothing to keep, their tests sign callbacks locally and need no gateway account, and `AUD-W1-16` closes a log-injection and denial-of-service hole in an endpoint that still binds on every launch. Removing the VNPay code path entirely would delete working code and needs an explicit instruction.
+
 ## Wave 1 — Test foundation, security, data integrity
 
 ### Result
