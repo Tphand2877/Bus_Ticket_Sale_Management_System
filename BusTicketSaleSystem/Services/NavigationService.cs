@@ -59,9 +59,14 @@ namespace BusTicketSaleSystem.Services
                 return;
             }
 
-            var instance = _viewModelFactory != null
-                ? _viewModelFactory(type)
-                : (ViewModelBase)Activator.CreateInstance(type)!;
+            // No silent Activator fallback: it produced ViewModels wired to a detached
+            // NavigationService, so the screen appeared to work while none of its
+            // navigation did, with no exception and no log entry (AUD-A-010).
+            if (_viewModelFactory is null)
+                throw new InvalidOperationException(
+                    $"Cannot navigate to {type.Name}: no ViewModel factory has been set on this NavigationService.");
+
+            var instance = _viewModelFactory(type);
 
             Activate(instance);
         }

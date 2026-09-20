@@ -34,25 +34,19 @@ public sealed class NavigationAndViewModelTests
         Assert.Equal(2, propertiesChanged.Count(p => p == nameof(NavigationService.CurrentViewModel)));
     }
 
-    private sealed class DummyViewModelWithDependency : ViewModelBase
-    {
-        public DummyViewModelWithDependency(string _) { }
-    }
-
+    /// <summary>
+    /// Navigating without a factory used to fall back to Activator, producing a
+    /// ViewModel wired to a detached NavigationService: the screen rendered but none
+    /// of its navigation worked, with no exception and no log entry (AUD-A-010).
+    /// </summary>
     [Fact]
-    public void NavigationService_FallbackActivatesParameterlessViewModelWhenNoFactory()
+    public void NavigationService_ThrowsADiagnosableErrorWhenNoFactoryIsSet()
     {
         var nav = new NavigationService();
-        nav.NavigateTo<DummyViewModelA>();
-        Assert.NotNull(nav.CurrentViewModel);
-        Assert.IsType<DummyViewModelA>(nav.CurrentViewModel);
-    }
 
-    [Fact]
-    public void NavigationService_ThrowsWhenViewModelRequiresDependenciesWithoutFactory()
-    {
-        var nav = new NavigationService();
-        Assert.Throws<MissingMethodException>(() => nav.NavigateTo<DummyViewModelWithDependency>());
+        var error = Assert.Throws<InvalidOperationException>(() => nav.NavigateTo<DummyViewModelA>());
+
+        Assert.Contains(nameof(DummyViewModelA), error.Message);
     }
 
     [Fact]

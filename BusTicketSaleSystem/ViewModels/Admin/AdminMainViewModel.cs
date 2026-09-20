@@ -8,7 +8,7 @@ namespace BusTicketSaleSystem.ViewModels;
 
 public sealed class AdminMainViewModel : ViewModelBase
 {
-    private readonly NavigationService _navigationService;
+    private readonly INavigationService _navigationService;
     private string _activeTab = "Dashboard";
     public ViewModelBase? CurrentViewModel => _navigationService.CurrentViewModel;
     public string ActiveTab { get => _activeTab; private set => SetProperty(ref _activeTab, value); }
@@ -30,12 +30,12 @@ public sealed class AdminMainViewModel : ViewModelBase
     public ICommand ToggleLanguageCommand { get; }
     public event EventHandler? RequestLogout;
 
-    public AdminMainViewModel(NavigationService navigationService)
+    public AdminMainViewModel(INavigationService navigationService)
     {
         _navigationService = navigationService;
         _navigationService.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(NavigationService.CurrentViewModel))
+            if (e.PropertyName == nameof(INavigationService.CurrentViewModel))
             {
                 OnPropertyChanged(nameof(CurrentViewModel));
                 ActiveTab = CurrentViewModel switch
@@ -70,15 +70,7 @@ public sealed class AdminMainViewModel : ViewModelBase
             OnPropertyChanged(nameof(StationScopeDisplay));
         };
 
-        _navigationService.SetFactory(type =>
-            type == typeof(AdminDashboardViewModel) ? new AdminDashboardViewModel(_navigationService) :
-            type == typeof(AdminRouteManagementViewModel) ? new AdminRouteManagementViewModel() :
-            type == typeof(AdminBusManagementViewModel) ? new AdminBusManagementViewModel() :
-            type == typeof(AdminTripManagementViewModel) ? new AdminTripManagementViewModel() :
-            type == typeof(AdminPaymentsViewModel) ? new AdminPaymentsViewModel() :
-            type == typeof(AdminReportsViewModel) ? new AdminReportsViewModel() :
-            type == typeof(AdminAccountsViewModel) ? new AdminAccountsViewModel() :
-            throw new InvalidOperationException($"No admin factory for {type.Name}"));
+        // The factory is supplied by the composition root (AppComposition.CreateShellScope).
         _navigationService.NavigateTo<AdminDashboardViewModel>();
     }
 }

@@ -32,10 +32,6 @@ public sealed class BookingViewModel : ViewModelBase, IRefreshable, IDisposable
     public ICommand RefreshCommand { get; }
     public ICommand SelectCompanyCommand { get; }
     public ICommand BackToHomeCommand { get; }
-    public BookingViewModel() : this(new NavigationService())
-    {
-    }
-
     public BookingViewModel(INavigationService navigationService)
     {
         _navigationService = navigationService;

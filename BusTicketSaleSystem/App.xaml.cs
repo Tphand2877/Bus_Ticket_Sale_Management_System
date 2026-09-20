@@ -3,12 +3,16 @@ using System.Windows.Threading;
 using BusTicketSaleSystem.Data;
 using BusTicketSaleSystem.Services;
 using BusTicketSaleSystem.Views;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
 namespace BusTicketSaleSystem;
 
 public partial class App : Application
 {
+    /// <summary>The application's composition root (AUD-A-003).</summary>
+    public static ServiceProvider Services { get; private set; } = null!;
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -17,6 +21,10 @@ public partial class App : Application
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+
+        Services = AppComposition.Build();
+        // Shell switching lives here, not duplicated in each window's code-behind.
+        Services.GetRequiredService<ISessionService>().SignedOut += (_, _) => ShowLogin(closePrevious: true);
 
         try
         {
@@ -35,9 +43,7 @@ public partial class App : Application
             BackgroundJobScheduler.Start();
             VnPayCallbackListener.Start();
 
-            var loginWindow = new LoginWindow();
-            MainWindow = loginWindow;
-            loginWindow.Show();
+            ShowLogin(closePrevious: false);
         }
         catch (Exception ex)
         {
@@ -45,6 +51,19 @@ public partial class App : Application
             MessageBox.Show($"The application could not start.\n\n{ex.Message}", "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
+    }
+
+    /// <summary>
+    /// Shows the sign-in window and, on sign-out, closes the shell it replaces.
+    /// Both shells used to duplicate this (AUD-A-008).
+    /// </summary>
+    private void ShowLogin(bool closePrevious)
+    {
+        var previous = MainWindow;
+        var loginWindow = new LoginWindow();
+        MainWindow = loginWindow;
+        loginWindow.Show();
+        if (closePrevious && previous is not null && !ReferenceEquals(previous, loginWindow)) previous.Close();
     }
 
     /// <summary>
