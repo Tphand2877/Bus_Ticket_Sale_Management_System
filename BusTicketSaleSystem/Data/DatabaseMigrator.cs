@@ -42,6 +42,7 @@ public static class DatabaseMigrator
             await ApplyMigrationAsync(connection, "012_TriggerRollbackFix", "Migration_009_TriggerRollbackFix.sql", skipWhenAccountsExist: false, cancellationToken);
             await ApplyMigrationAsync(connection, "013_LoginThrottling", "Migration_010_LoginThrottling.sql", skipWhenAccountsExist: false, cancellationToken);
             await ApplyMigrationAsync(connection, "014_PaymentIntegrity", "Migration_011_PaymentIntegrity.sql", skipWhenAccountsExist: false, cancellationToken);
+            await ApplyMigrationAsync(connection, "015_AuditLog", "Migration_012_AuditLog.sql", skipWhenAccountsExist: false, cancellationToken);
             await EnsureStagePriceColumnsAsync(connection, cancellationToken);
             return true;
         }

@@ -1219,6 +1219,7 @@ WHERE TripId = @Id
             if (await command.ExecuteNonQueryAsync() != 1) return (false, "That account no longer exists.");
             // A privilege grant is the most security-relevant admin action; it used to
             // leave no trace at all on the success path (AUD-D-009).
+            await AuditLog.WriteAsync(connection, null, "AccountRoleChanged", "Account", accountId.ToString(), $"Role set to {newRole}.");
             LoggerService.LogInfo($"Admin {CurrentUser.Account?.AccountId} set the role of account {accountId} to {newRole}.");
             return (true, null);
         }
@@ -1248,6 +1249,7 @@ WHERE TripId = @Id
             command.Parameters.Add("@Id", SqlDbType.Int).Value = accountId;
             command.Parameters.Add("@Hash", SqlDbType.NVarChar, 255).Value = hash;
             if (await command.ExecuteNonQueryAsync() != 1) return (false, "That account no longer exists.");
+            await AuditLog.WriteAsync(connection, null, "AccountPasswordReset", "Account", accountId.ToString());
             LoggerService.LogInfo($"Admin {CurrentUser.Account?.AccountId} reset the password of account {accountId}.");
             return (true, null);
         }
@@ -1290,7 +1292,11 @@ END;";
             await using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@Id", SqlDbType.Int).Value = accountId;
             var code = (int)(await command.ExecuteScalarAsync())!;
-            if (code == 0) LoggerService.LogInfo($"Admin {CurrentUser.Account?.AccountId} deleted account {accountId}.");
+            if (code == 0)
+            {
+                await AuditLog.WriteAsync(connection, null, "AccountDeleted", "Account", accountId.ToString());
+                LoggerService.LogInfo($"Admin {CurrentUser.Account?.AccountId} deleted account {accountId}.");
+            }
             return code switch
             {
                 0 => (true, null),

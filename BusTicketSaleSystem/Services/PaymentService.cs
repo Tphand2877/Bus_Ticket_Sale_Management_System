@@ -436,6 +436,7 @@ WHERE Status=N'Đã đặt' AND PaymentStatus=N'Chưa thanh toán' AND PaymentEx
     private const int OutcomeWrongMethod = 3;
     private const int OutcomeTicketNotEligible = 4;
     private const int OutcomeNoRefundRequest = 5;
+    private const int OutcomeTicketAlreadyUsed = 7;
 
     /// <summary>
     /// Mirrors <c>AdminDatabaseService.RequireAdmin()</c>: the acting user must be the signed-in
@@ -490,7 +491,7 @@ SELECT @Result;";
             OutcomeWrongMethod => "Only bank transfers and cash payments can be confirmed manually.",
             OutcomeTicketNotEligible => "The ticket is no longer eligible: it was cancelled, expired or already paid.",
             _ => null
-        });
+        }, "PaymentConfirmed", paymentId.ToString(CultureInfo.InvariantCulture));
     }
 
     public static async Task<(bool Success, string? Error)> RejectManualPaymentAsync(int paymentId, int adminAccountId, string? reason)
@@ -524,7 +525,7 @@ SELECT @Result;";
             OutcomeNotFound => "That payment no longer exists.",
             OutcomeWrongPaymentState => "Only a pending payment can be rejected.",
             _ => null
-        });
+        }, "PaymentRejected", paymentId.ToString(CultureInfo.InvariantCulture));
     }
 
     public static async Task<(bool Success, string? Error)> ApproveRefundAsync(int paymentId, int adminAccountId, string? note)
@@ -544,10 +545,16 @@ ELSE
 BEGIN
     -- take the ticket row lock before mutating either side of the pair
     SELECT @TicketState=t.Status FROM Tickets t WITH (UPDLOCK,HOLDLOCK) WHERE t.TicketId=@TicketId;
-    UPDATE Payments SET Status=N'Refunded', RefundedAt=SYSUTCDATETIME(),
-           RefundApprovedByAccountId=@AdminAccountId, Notes=@Note
-    WHERE PaymentId=@PaymentId;
-    UPDATE Tickets SET PaymentStatus=N'Hoàn tiền' WHERE TicketId=@TicketId;
+    /* A travelled ticket must not be refunded: the state was read but never
+       checked, so a used ticket could be paid back (AUD-C-006). */
+    IF @TicketState=N'Đã sử dụng' SET @Result=7;
+    ELSE
+    BEGIN
+        UPDATE Payments SET Status=N'Refunded', RefundedAt=SYSUTCDATETIME(),
+               RefundApprovedByAccountId=@AdminAccountId, Notes=@Note
+        WHERE PaymentId=@PaymentId;
+        UPDATE Tickets SET PaymentStatus=N'Hoàn tiền' WHERE TicketId=@TicketId;
+    END
 END
 SELECT @Result;";
 
@@ -561,15 +568,17 @@ SELECT @Result;";
             OutcomeNotFound => "That payment no longer exists.",
             OutcomeWrongPaymentState => "Only a settled payment can be refunded.",
             OutcomeNoRefundRequest => "The passenger has not requested a refund for this payment.",
+            OutcomeTicketAlreadyUsed => "This ticket has already been used for travel, so the payment cannot be refunded.",
             _ => null
-        });
+        }, "RefundApproved", paymentId.ToString(CultureInfo.InvariantCulture));
     }
 
     private static object TextOrNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim();
 
     private static async Task<(bool Success, string? Error)> ExecuteSettlementAsync(
-        string sql, string operation, Action<SqlCommand> bind, Func<int, string?> describe)
+        string sql, string operation, Action<SqlCommand> bind, Func<int, string?> describe,
+        string? auditAction = null, string? auditTargetId = null)
     {
         SqlTransaction? transaction = null;
         try
@@ -585,6 +594,9 @@ SELECT @Result;";
                 await transaction.RollbackAsync();
                 return (false, describe(outcome) ?? "The operation was refused by the payment ledger.");
             }
+            // The audit row commits with the state change it describes (AUD-D-009).
+            if (auditAction is not null)
+                await AuditLog.WriteAsync(connection, transaction, auditAction, "Payment", auditTargetId);
             await transaction.CommitAsync();
             LoggerService.LogInfo($"Settlement succeeded: {operation}.");
             return (true, null);
