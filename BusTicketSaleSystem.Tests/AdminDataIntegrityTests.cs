@@ -100,9 +100,15 @@ INSERT INTO dbo.IntegrationBusRef (BusId) VALUES ({busId});");
     {
         _fixture.SkipIfUnavailable();
         CurrentUser.Account = new UserSession(_fixture.AccountIds[0], "integration_admin", "Integration Admin", null, null, "Admin");
+        var previousStation = LocationService.Instance.MachineLocation;
         try
         {
             var routeId = await _fixture.ScalarAsync<int>("SELECT TOP (1) RouteId FROM dbo.Routes ORDER BY RouteId;");
+            var origin = await _fixture.ScalarAsync<string>($"SELECT Origin FROM dbo.Routes WHERE RouteId = {routeId};");
+            // The data layer now refuses routes outside the workstation's station, so
+            // the fixture's station is pinned to the route under test.
+            LocationService.Instance.SetFixedMachineLocation(origin!);
+
             var busId = await _fixture.ScalarAsync<int>("SELECT TOP (1) BusId FROM dbo.Buses ORDER BY BusId;");
             var departure = DateTime.UtcNow.AddDays(30).Date.AddHours(6);
             var arrival = departure.AddHours(4);
@@ -119,6 +125,61 @@ INSERT INTO dbo.IntegrationBusRef (BusId) VALUES ({busId});");
         }
         finally
         {
+            LocationService.Instance.SetFixedMachineLocation(previousStation);
+            CurrentUser.Account = null;
+        }
+    }
+
+    /// <summary>
+    /// AUD-D-005: the per-station rule lived only in two ViewModels, so any other
+    /// caller — or a direct data-layer call — could administer a foreign station.
+    /// </summary>
+    [SkippableFact]
+    public async Task AddTripAsync_RefusesARouteOutsideTheStationScope()
+    {
+        _fixture.SkipIfUnavailable();
+        CurrentUser.Account = new UserSession(_fixture.AccountIds[0], "integration_admin", "Integration Admin", null, null, "Admin");
+        var previousStation = LocationService.Instance.MachineLocation;
+        try
+        {
+            var routeId = await _fixture.ScalarAsync<int>("SELECT TOP (1) RouteId FROM dbo.Routes ORDER BY RouteId;");
+            var busId = await _fixture.ScalarAsync<int>("SELECT TOP (1) BusId FROM dbo.Buses ORDER BY BusId;");
+            LocationService.Instance.SetFixedMachineLocation("Cà Mau");
+
+            var departure = DateTime.UtcNow.AddDays(45).Date.AddHours(9);
+            var (success, error) = await AdminDatabaseService.AddTripAsync(routeId, busId, departure, departure.AddHours(3), 150000m);
+
+            Assert.False(success);
+            Assert.Contains("Cà Mau", error);
+            Assert.Equal(0, await _fixture.ScalarAsync<int>(
+                $"SELECT COUNT(*) FROM dbo.Trips WHERE BusId = {busId} AND DepartureTime = '{departure:yyyy-MM-ddTHH:mm:ss.fff}';"));
+        }
+        finally
+        {
+            LocationService.Instance.SetFixedMachineLocation(previousStation);
+            CurrentUser.Account = null;
+        }
+    }
+
+    /// <summary>Route creation must obey the same station rule as trip scheduling.</summary>
+    [SkippableFact]
+    public async Task AddRouteAsync_RefusesARouteOutsideTheStationScope()
+    {
+        _fixture.SkipIfUnavailable();
+        CurrentUser.Account = new UserSession(_fixture.AccountIds[0], "integration_admin", "Integration Admin", null, null, "Admin");
+        var previousStation = LocationService.Instance.MachineLocation;
+        try
+        {
+            LocationService.Instance.SetFixedMachineLocation("Cà Mau");
+
+            var (success, error) = await AdminDatabaseService.AddRouteAsync("Hà Nội", "Hải Phòng", 120m);
+
+            Assert.False(success);
+            Assert.Contains("Cà Mau", error);
+        }
+        finally
+        {
+            LocationService.Instance.SetFixedMachineLocation(previousStation);
             CurrentUser.Account = null;
         }
     }

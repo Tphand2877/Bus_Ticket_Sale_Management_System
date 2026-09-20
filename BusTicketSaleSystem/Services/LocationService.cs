@@ -64,6 +64,12 @@ public sealed class LocationService
     /// </summary>
     public IReadOnlyList<string> AvailableLocations => VietnamProvinces.List;
 
+    /// <summary>
+    /// True when the station was pinned by configuration rather than guessed from the
+    /// network. A pinned station is authoritative and geolocation may not override it.
+    /// </summary>
+    public bool IsStationPinned { get; }
+
     private LocationService()
     {
         // 1. Kiểm tra cấu hình môi trường hoặc file config
@@ -73,6 +79,7 @@ public sealed class LocationService
             var normalized = NormalizeToVietnamProvince(envStation);
             _machineLocation = normalized;
             _currentLocation = normalized;
+            IsStationPinned = true;
         }
 
         // 2. Kích hoạt dò vị trí máy qua IP Geolocation nền (non-blocking)
@@ -131,8 +138,9 @@ public sealed class LocationService
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
             client.DefaultRequestHeaders.UserAgent.ParseAdd("OmniBus-Transit-VN/1.0");
 
-            // ip-api.com trả về kết quả nhanh, hỗ trợ đầy đủ các dải IP Viettel, VNPT, FPT tại Việt Nam
-            var response = await client.GetStringAsync("http://ip-api.com/json/?fields=status,country,regionName,city");
+            // HTTPS: the reply used to travel in cleartext, so anything on the path
+            // could choose the station an administrator was scoped to (AUD-D-008).
+            var response = await client.GetStringAsync("https://ip-api.com/json/?fields=status,country,regionName,city");
             using var doc = JsonDocument.Parse(response);
             var root = doc.RootElement;
 
@@ -145,7 +153,11 @@ public sealed class LocationService
                 if (!string.IsNullOrWhiteSpace(detected))
                 {
                     var normalized = NormalizeToVietnamProvince(detected);
-                    MachineLocation = normalized;
+
+                    // Geolocation is a convenience hint for customers only. It must
+                    // never decide which station an administrator may operate on:
+                    // that value comes from STATION_LOCATION (AUD-D-008).
+                    if (!IsStationPinned) MachineLocation = normalized;
                     if (!CurrentUser.IsAdmin && _currentLocation == DefaultStation)
                     {
                         _currentLocation = normalized;

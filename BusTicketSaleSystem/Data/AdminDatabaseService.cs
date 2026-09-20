@@ -14,6 +14,53 @@ public static class AdminDatabaseService
     }
 
     /// <summary>
+    /// The station this workstation may administer. Sourced the same way the admin
+    /// shell sources it, so the rule the UI states is now also enforced below the UI
+    /// (AUD-D-005). Pinned by <c>STATION_LOCATION</c> where it matters; geolocation
+    /// can no longer decide it.
+    /// </summary>
+    private static string StationScope => LocationService.Instance.CurrentLocation;
+
+    /// <summary>
+    /// A route is in scope when either endpoint names the station, matching the rule
+    /// the admin screens display.
+    /// </summary>
+    private static bool IsWithinStationScope(string origin, string destination)
+    {
+        var scope = StationScope;
+        return string.IsNullOrWhiteSpace(scope)
+               || origin.Contains(scope, StringComparison.OrdinalIgnoreCase)
+               || destination.Contains(scope, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string OutOfScopeMessage =>
+        $"This workstation may only administer routes serving Bến xe {StationScope}.";
+
+    /// <summary>
+    /// SQL fragment restricting a route reference to the station scope. Applied in the
+    /// same statement as the write so no caller can bypass it.
+    /// </summary>
+    private const string RouteInStationScope =
+        " AND EXISTS (SELECT 1 FROM Routes sc WHERE sc.RouteId = @Route AND (sc.Origin LIKE @Scope OR sc.Destination LIKE @Scope))";
+
+
+    /// <summary>Whether a persisted route lies inside this workstation's station scope.</summary>
+    private static async Task<bool> RouteIsInScopeAsync(int routeId)
+    {
+        const string sql = "SELECT Origin, Destination FROM Routes WHERE RouteId = @Route;";
+        await using var connection = DatabaseHelper.GetConnection();
+        await connection.OpenAsync();
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.Add("@Route", SqlDbType.Int).Value = routeId;
+        await using var reader = await command.ExecuteReaderAsync();
+        // An unknown route is reported as in scope so the caller surfaces the real
+        // "route is invalid" reason rather than a misleading scope refusal.
+        return !await reader.ReadAsync() || IsWithinStationScope(reader.GetString(0), reader.GetString(1));
+    }
+    private static void AddScopeParameter(SqlCommand command) =>
+        command.Parameters.Add("@Scope", SqlDbType.NVarChar, 120).Value = $"%{EscapeLikePattern(StationScope)}%";
+
+    /// <summary>
     /// Headline figures for the admin dashboard. Revenue is taken from the payment ledger
     /// (settled minus refunded) so unpaid seat holds never inflate it; those are reported
     /// separately as awaiting settlement.
@@ -276,6 +323,7 @@ ORDER BY 3 DESC, RouteSummary ASC;";
         if (string.IsNullOrWhiteSpace(origin) || string.IsNullOrWhiteSpace(destination)) return (false, "Enter both an origin and a destination.");
         if (string.Equals(origin, destination, StringComparison.OrdinalIgnoreCase)) return (false, "Origin and destination must be different.");
         if (distance is < 0) return (false, "Distance cannot be negative.");
+        if (!IsWithinStationScope(origin, destination)) return (false, OutOfScopeMessage);
 
         const string sql = @"
 INSERT INTO Routes (Origin, Destination, DistanceKm)
@@ -307,6 +355,7 @@ WHERE NOT EXISTS (SELECT 1 FROM Routes WHERE Origin = @Origin AND Destination = 
         if (string.IsNullOrWhiteSpace(origin) || string.IsNullOrWhiteSpace(destination)) return (false, "Enter both an origin and a destination.");
         if (string.Equals(origin, destination, StringComparison.OrdinalIgnoreCase)) return (false, "Origin and destination must be different.");
         if (distanceKm is < 0) return (false, "Distance cannot be negative.");
+        if (!IsWithinStationScope(origin, destination)) return (false, OutOfScopeMessage);
 
         const string sql = @"
 SET NOCOUNT ON;
@@ -993,7 +1042,8 @@ WHERE EXISTS (SELECT 1 FROM Routes WHERE RouteId = @Route)
   /* HOLDLOCK keeps the range locked until commit, so two admins cannot both pass
      the overlap check and schedule one bus onto two simultaneous trips. */
   AND NOT EXISTS (SELECT 1 FROM Trips WITH (UPDLOCK, HOLDLOCK)
-                  WHERE BusId = @Bus AND DepartureTime < @Arrival AND ArrivalTime > @Departure);
+                  WHERE BusId = @Bus AND DepartureTime < @Arrival AND ArrivalTime > @Departure)"
+  + RouteInStationScope + @";
 COMMIT TRANSACTION;";
         try
         {
@@ -1008,9 +1058,13 @@ COMMIT TRANSACTION;";
             amount.Precision = 10;
             amount.Scale = 0;
             amount.Value = price;
-            return await command.ExecuteNonQueryAsync() == 1
-                ? (true, null)
-                : (false, "That bus already runs an overlapping trip, or the route/bus is invalid.");
+            AddScopeParameter(command);
+            if (await command.ExecuteNonQueryAsync() == 1) return (true, null);
+            // Distinguish an out-of-scope route from a genuine scheduling clash so the
+            // operator is told which rule refused the write.
+            return await RouteIsInScopeAsync(routeId)
+                ? (false, "That bus already runs an overlapping trip, or the route/bus is invalid.")
+                : (false, OutOfScopeMessage);
         }
         catch (SqlException ex) when (ex.Number is 2601 or 2627)
         {
@@ -1043,9 +1097,15 @@ ELSE IF NOT EXISTS (SELECT 1 FROM Routes WHERE RouteId = @Route)
     SELECT 2;
 ELSE IF NOT EXISTS (SELECT 1 FROM Buses WHERE BusId = @Bus)
     SELECT 3;
+/* The target route and the trip's current route must both serve this station,
+   so a trip cannot be moved into or out of the workstation's scope (AUD-D-005). */
+ELSE IF NOT EXISTS (SELECT 1 FROM Routes sc WHERE sc.RouteId = @Route AND (sc.Origin LIKE @Scope OR sc.Destination LIKE @Scope))
+     OR NOT EXISTS (SELECT 1 FROM Trips t JOIN Routes sc ON sc.RouteId = t.RouteId
+                    WHERE t.TripId = @TripId AND (sc.Origin LIKE @Scope OR sc.Destination LIKE @Scope))
+    SELECT 6;
 ELSE IF @CurrentBus <> @Bus AND EXISTS (SELECT 1 FROM Tickets WHERE TripId = @TripId)
     SELECT 4;
-ELSE IF EXISTS (SELECT 1 FROM Trips WHERE BusId = @Bus AND TripId <> @TripId AND DepartureTime < @Arrival AND ArrivalTime > @Departure)
+ELSE IF EXISTS (SELECT 1 FROM Trips WITH (UPDLOCK, HOLDLOCK) WHERE BusId = @Bus AND TripId <> @TripId AND DepartureTime < @Arrival AND ArrivalTime > @Departure)
     SELECT 5;
 ELSE
 BEGIN
@@ -1068,6 +1128,7 @@ END;";
             pPrice.Precision = 10;
             pPrice.Scale = 0;
             pPrice.Value = price;
+            AddScopeParameter(command);
             var code = (int)(await command.ExecuteScalarAsync())!;
             return code switch
             {
@@ -1076,6 +1137,7 @@ END;";
                 2 => (false, "The selected route no longer exists."),
                 3 => (false, "The selected bus no longer exists."),
                 4 => (false, "Tickets have already been issued for this trip, so it cannot be moved to another bus."),
+                6 => (false, OutOfScopeMessage),
                 _ => (false, "The selected bus already runs an overlapping trip in that time window.")
             };
         }
@@ -1089,14 +1151,22 @@ END;";
     public static async Task<(bool Success, string? Error)> DeleteTripAsync(int tripId)
     {
         RequireAdmin();
-        const string sql = "DELETE FROM Trips WHERE TripId = @Id AND NOT EXISTS (SELECT 1 FROM Tickets WHERE TripId = @Id);";
+        const string sql = @"
+DELETE FROM Trips
+WHERE TripId = @Id
+  AND NOT EXISTS (SELECT 1 FROM Tickets WHERE TripId = @Id)
+  AND EXISTS (SELECT 1 FROM Routes sc JOIN Trips t ON t.RouteId = sc.RouteId
+              WHERE t.TripId = @Id AND (sc.Origin LIKE @Scope OR sc.Destination LIKE @Scope));";
         try
         {
             await using var connection = DatabaseHelper.GetConnection();
             await connection.OpenAsync();
             await using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@Id", SqlDbType.Int).Value = tripId;
-            return await command.ExecuteNonQueryAsync() == 1 ? (true, null) : (false, "Tickets exist for this trip, so it cannot be deleted.");
+            AddScopeParameter(command);
+            return await command.ExecuteNonQueryAsync() == 1
+                ? (true, null)
+                : (false, "Tickets exist for this trip, or it is outside this workstation's station scope, so it cannot be deleted.");
         }
         catch (SqlException ex)
         {
