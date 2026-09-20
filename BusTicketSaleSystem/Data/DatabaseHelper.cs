@@ -40,6 +40,9 @@ public static class DatabaseHelper
     private static readonly string DummyHash =
         $"{PasswordHashPrefix}${PasswordIterations}${Convert.ToBase64String(new byte[PasswordSaltBytes])}${Convert.ToBase64String(new byte[PasswordHashBytes])}";
 
+    /// <summary>Set once the one-shot BusCompanies back-fill has run in this process.</summary>
+    private static int _busCompaniesSynced;
+
     public static SqlConnection GetConnection() => new(DatabaseOptions.ConnectionString);
 
     /// <summary>
@@ -419,8 +422,21 @@ ORDER BY COUNT(t.TripId) DESC, r.RouteId;";
         return results;
     }
 
+    /// <summary>
+    /// Back-fills <c>BusCompanies</c> from operator-entered <c>Buses.CompanyName</c>
+    /// values that predate the company table.
+    /// </summary>
+    /// <remarks>
+    /// Runs at most once per process. It used to execute on every company-list read,
+    /// so browsing took write locks, and its unlocked check-then-insert raised a
+    /// swallowed unique violation under concurrency that silently shortened the list
+    /// (AUD-B-013). Companies created after start-up come from
+    /// <c>AdminDatabaseService.RegisterBusAsync</c>, which inserts them directly.
+    /// </remarks>
     public static async Task EnsureBusCompaniesSyncedAsync()
     {
+        if (Interlocked.Exchange(ref _busCompaniesSynced, 1) == 1) return;
+
         const string syncSql = @"
 INSERT INTO BusCompanies (CompanyName, Hotline, Rating, ReviewCount, OperatingArea, Description, Amenities, LogoText, BrandColor)
 SELECT DISTINCT TRIM(b.CompanyName),
@@ -854,18 +870,25 @@ WHERE EXISTS(SELECT 1 FROM Seats s JOIN Trips tr ON tr.BusId=s.BusId WHERE tr.Tr
     }
 
     /// <summary>
-    /// Releases a ticket the customer owns. A settled ticket is flagged for
-    /// refund approval; an unpaid hold also fails its pending payment row so the
-    /// ledger never keeps a phantom <c>Pending</c> entry for a released seat.
+    /// Releases an unpaid seat hold the customer owns.
     /// </summary>
+    /// <remarks>
+    /// A settled ticket is delegated to <see cref="RequestRefundAsync"/>. Both methods
+    /// used to implement the paid-ticket release with slightly different preconditions
+    /// while only the refund path was reachable from the UI, so the two were free to
+    /// drift apart during maintenance (AUD-C-015).
+    /// </remarks>
     public static async Task<(bool Success, string? Error)> CancelTicketAsync(int ticketId, int accountId)
     {
+        if (await IsSettledTicketAsync(ticketId, accountId))
+            return await RequestRefundAsync(ticketId, accountId);
+
         const string sql = @"
 SET XACT_ABORT ON;
 BEGIN TRANSACTION;
 
-DECLARE @Status NVARCHAR(20), @PaymentStatus NVARCHAR(20), @Departure DATETIME2;
-SELECT @Status = tk.Status, @PaymentStatus = tk.PaymentStatus, @Departure = tr.DepartureTime
+DECLARE @Status NVARCHAR(20), @Departure DATETIME2;
+SELECT @Status = tk.Status, @Departure = tr.DepartureTime
 FROM dbo.Tickets tk WITH (UPDLOCK, HOLDLOCK)
 JOIN dbo.Trips tr ON tr.TripId = tk.TripId
 WHERE tk.TicketId = @TicketId AND tk.AccountId = @AccountId;
@@ -890,12 +913,11 @@ BEGIN
     UPDATE dbo.Tickets SET Status = N'Đã hủy', CancelledAt = SYSUTCDATETIME(), PaymentExpiresAt = NULL
     WHERE TicketId = @TicketId;
 
-    IF @PaymentStatus = N'Đã thanh toán'
-        UPDATE dbo.Payments SET RefundRequestedAt = SYSUTCDATETIME()
-        WHERE TicketId = @TicketId AND Status = N'Success' AND RefundRequestedAt IS NULL;
-    ELSE
-        UPDATE dbo.Payments SET Status = N'Failed', Notes = COALESCE(Notes, N'Cancelled by the customer before payment.')
-        WHERE TicketId = @TicketId AND Status = N'Pending';
+    /* Unpaid hold: fail the pending payment so the ledger keeps no phantom entry for
+       a released seat. A settled ticket never reaches here — it is delegated to
+       RequestRefundAsync before this statement runs. */
+    UPDATE dbo.Payments SET Status = N'Failed', Notes = COALESCE(Notes, N'Cancelled by the customer before payment.')
+    WHERE TicketId = @TicketId AND Status = N'Pending';
 
     COMMIT TRANSACTION;
     SELECT 0;
@@ -920,6 +942,30 @@ END;";
         {
             LoggerService.LogError($"Could not cancel ticket {ticketId} for account {accountId}.", ex);
             return (false, "Could not cancel the ticket right now.");
+        }
+    }
+
+    /// <summary>Whether the ticket belongs to the account and has already been paid for.</summary>
+    private static async Task<bool> IsSettledTicketAsync(int ticketId, int accountId)
+    {
+        const string sql = @"
+SELECT CASE WHEN EXISTS (
+    SELECT 1 FROM dbo.Tickets
+    WHERE TicketId = @TicketId AND AccountId = @AccountId AND PaymentStatus = N'Đã thanh toán')
+THEN 1 ELSE 0 END;";
+        try
+        {
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(sql, connection);
+            command.Parameters.Add("@TicketId", SqlDbType.Int).Value = ticketId;
+            command.Parameters.Add("@AccountId", SqlDbType.Int).Value = accountId;
+            return Convert.ToInt32(await command.ExecuteScalarAsync()) == 1;
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not read the payment state of ticket {ticketId}.", ex);
+            return false;
         }
     }
 

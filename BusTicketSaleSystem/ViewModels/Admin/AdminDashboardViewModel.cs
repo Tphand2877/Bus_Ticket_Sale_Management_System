@@ -91,24 +91,29 @@ public sealed class AdminDashboardViewModel : ViewModelBase, IRefreshable
         IsLoading = true;
         try
         {
-            Stats = await AdminDatabaseService.GetDashboardStatsAsync();
+            // Four independent reads, each on its own connection: issued together the
+            // landing screen costs one round trip instead of four (AUD-E-012).
+            var statsTask = AdminDatabaseService.GetDashboardStatsAsync();
+            var bookingsTask = AdminDatabaseService.GetRecentBookingsAsync(6);
+            var tripsTask = AdminDatabaseService.GetUpcomingTripsAsync(5);
+            var busesTask = AdminDatabaseService.GetBusesAsync();
+            await Task.WhenAll(statsTask, bookingsTask, tripsTask, busesTask);
+
+            Stats = await statsTask;
             OnPropertyChanged(nameof(Stats));
 
-            var bookings = await AdminDatabaseService.GetRecentBookingsAsync(6);
             RecentBookings.Clear();
-            foreach (var b in bookings) RecentBookings.Add(b);
+            foreach (var b in await bookingsTask) RecentBookings.Add(b);
             OnPropertyChanged(nameof(HasRecentBookings));
             OnPropertyChanged(nameof(HasNoRecentBookings));
 
-            var trips = await AdminDatabaseService.GetUpcomingTripsAsync(5);
             UpcomingTrips.Clear();
-            foreach (var t in trips) UpcomingTrips.Add(t);
+            foreach (var t in await tripsTask) UpcomingTrips.Add(t);
             OnPropertyChanged(nameof(HasUpcomingTrips));
             OnPropertyChanged(nameof(HasNoUpcomingTrips));
 
-            var buses = await AdminDatabaseService.GetBusesAsync();
             BusFleet.Clear();
-            foreach (var bus in buses.Take(5)) BusFleet.Add(bus);
+            foreach (var bus in (await busesTask).Take(5)) BusFleet.Add(bus);
             OnPropertyChanged(nameof(HasBuses));
             OnPropertyChanged(nameof(HasNoBuses));
 

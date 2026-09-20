@@ -281,7 +281,8 @@ public static class TicketPrintService
         ArgumentException.ThrowIfNullOrWhiteSpace(ticketCode);
         using var generator = new QRCodeGenerator();
         using var data = generator.CreateQrCode(ticketCode, QRCodeGenerator.ECCLevel.Q);
-        var bytes = new PngByteQRCode(data).GetGraphic(20);
+        using var png = new PngByteQRCode(data);
+        var bytes = png.GetGraphic(20);
         using var stream = new MemoryStream(bytes);
         var image = new BitmapImage();
         image.BeginInit();
@@ -297,7 +298,8 @@ public static class TicketPrintService
         ArgumentException.ThrowIfNullOrWhiteSpace(ticketCode);
         using var generator = new QRCodeGenerator();
         using var data = generator.CreateQrCode(ticketCode, QRCodeGenerator.ECCLevel.Q);
-        return new PngByteQRCode(data).GetGraphic(20);
+        using var png = new PngByteQRCode(data);
+        return png.GetGraphic(20);
     }
 
     public static void PrintTicket(TicketPrintModel model)
