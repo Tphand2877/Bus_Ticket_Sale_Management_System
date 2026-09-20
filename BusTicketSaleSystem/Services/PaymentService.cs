@@ -414,16 +414,32 @@ END";
         return await command.ExecuteScalarAsync() as string;
     }
 
+    /// <summary>
+    /// Fails every payment whose seat hold has lapsed and releases the matching tickets.
+    /// </summary>
+    /// <returns>The number of seat holds released.</returns>
+    /// <remarks>
+    /// The two updates are one transaction: run separately, a connection drop between
+    /// them left payments marked Failed while their tickets still held seats, and the
+    /// combined row count told the caller nothing usable (AUD-C-010).
+    /// </remarks>
     public static async Task<int> ExpirePendingPaymentsAsync()
     {
-        const string sql = @"UPDATE Payments SET Status=N'Failed',ResponseCode=N'EXPIRED',VerifiedAt=SYSUTCDATETIME()
+        const string sql = @"
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+UPDATE Payments SET Status=N'Failed',ResponseCode=N'EXPIRED',VerifiedAt=SYSUTCDATETIME()
 WHERE Status=N'Pending' AND TicketId IN (SELECT TicketId FROM Tickets WHERE PaymentExpiresAt<=SYSUTCDATETIME());
 UPDATE Tickets SET Status=N'Đã hủy',PaymentStatus=N'Chưa thanh toán',CancelledAt=SYSUTCDATETIME()
-WHERE Status=N'Đã đặt' AND PaymentStatus=N'Chưa thanh toán' AND PaymentExpiresAt<=SYSUTCDATETIME();";
+WHERE Status=N'Đã đặt' AND PaymentStatus=N'Chưa thanh toán' AND PaymentExpiresAt<=SYSUTCDATETIME();
+DECLARE @Released int = @@ROWCOUNT;
+COMMIT TRANSACTION;
+SELECT @Released;";
         await using var connection = DatabaseHelper.GetConnection();
         await connection.OpenAsync();
         await using var command = new SqlCommand(sql, connection);
-        return await command.ExecuteNonQueryAsync();
+        return Convert.ToInt32(await command.ExecuteScalarAsync(), CultureInfo.InvariantCulture);
     }
 
     // ---------------------------------------------------------------------

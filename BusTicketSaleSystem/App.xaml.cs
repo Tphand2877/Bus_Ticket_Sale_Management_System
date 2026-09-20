@@ -47,12 +47,42 @@ public partial class App : Application
         }
     }
 
+    /// <summary>
+    /// Keeps the application alive for failures a point-of-sale operator can retry, and
+    /// lets everything else terminate. Marking every exception handled meant the app
+    /// carried on after arbitrary state corruption (AUD-E-011), and the dialog gave the
+    /// user nothing to quote to support (AUD-G-005).
+    /// </summary>
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        LoggerService.LogError("Unhandled UI dispatcher exception.", e.Exception);
-        MessageBox.Show("A system error occurred. Details were written to Logs/app-*.log.", "System error", MessageBoxButton.OK, MessageBoxImage.Error);
+        var correlationId = Guid.NewGuid().ToString("N")[..8];
+        LoggerService.LogError($"Unhandled UI dispatcher exception [{correlationId}].", e.Exception);
+
+        if (!IsRecoverable(e.Exception))
+        {
+            MessageBox.Show(
+                $"The application must close after an unexpected error.\n\nReference: {correlationId}\nDetails were written to Logs/app-*.log.",
+                "Fatal error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Log.CloseAndFlush();
+            return; // not handled: the process terminates rather than continuing in an unknown state
+        }
+
+        MessageBox.Show(
+            $"A system error occurred.\n\nReference: {correlationId}\nDetails were written to Logs/app-*.log.",
+            "System error", MessageBoxButton.OK, MessageBoxImage.Error);
         e.Handled = true;
     }
+
+    /// <summary>
+    /// Transient infrastructure faults leave the application's own state intact; a
+    /// programming error or resource exhaustion does not.
+    /// </summary>
+    private static bool IsRecoverable(Exception exception) => exception is
+        Microsoft.Data.SqlClient.SqlException or
+        System.IO.IOException or
+        TimeoutException or
+        OperationCanceledException or
+        ExternalServiceException;
 
     private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
     {
