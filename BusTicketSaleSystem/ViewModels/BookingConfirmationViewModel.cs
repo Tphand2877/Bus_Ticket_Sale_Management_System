@@ -16,6 +16,7 @@ public sealed class BookingConfirmationViewModel : ViewModelBase
     private static readonly TimeSpan BankTransferHold = TimeSpan.FromMinutes(15);
 
     private readonly INavigationService _navigationService;
+    private readonly IPaymentDialogService _paymentDialog;
 
     public TripSearchResult Trip { get; }
     public IReadOnlyList<SeatInfo> Seats { get; }
@@ -59,16 +60,17 @@ public sealed class BookingConfirmationViewModel : ViewModelBase
     public ICommand CompleteBookingCommand { get; }
     public ICommand BackToSeatsCommand { get; }
 
-    public BookingConfirmationViewModel(INavigationService navigationService, TripSearchResult trip, SeatInfo seat, string passengerName, string passengerPhone)
-        : this(navigationService, trip, new[] { seat }, passengerName, passengerPhone)
+    public BookingConfirmationViewModel(INavigationService navigationService, IPaymentDialogService paymentDialog, TripSearchResult trip, SeatInfo seat, string passengerName, string passengerPhone)
+        : this(navigationService, paymentDialog, trip, new[] { seat }, passengerName, passengerPhone)
     {
     }
 
-    public BookingConfirmationViewModel(INavigationService navigationService, TripSearchResult trip, IReadOnlyList<SeatInfo> seats, string passengerName, string passengerPhone)
+    public BookingConfirmationViewModel(INavigationService navigationService, IPaymentDialogService paymentDialog, TripSearchResult trip, IReadOnlyList<SeatInfo> seats, string passengerName, string passengerPhone)
     {
         if (seats.Count == 0) throw new ArgumentException("At least one seat is required.", nameof(seats));
 
         _navigationService = navigationService;
+        _paymentDialog = paymentDialog;
         Trip = trip;
         Seats = seats;
         PassengerName = passengerName;
@@ -90,7 +92,7 @@ public sealed class BookingConfirmationViewModel : ViewModelBase
             CompleteBookingAsync,
             onError: _ => StatusMessage = LocalizationService.Instance.GetString("ToastBookingFailed"));
         BackToSeatsCommand = new RelayCommand(
-            () => _navigationService.NavigateTo(new SeatSelectionViewModel(_navigationService, Trip)),
+            () => _navigationService.NavigateTo(new SeatSelectionViewModel(_navigationService, _paymentDialog, Trip)),
             () => !IsBusy);
     }
 
@@ -154,12 +156,12 @@ public sealed class BookingConfirmationViewModel : ViewModelBase
                     return;
 
                 case "VNPay":
-                    ShowPaymentDialog(ticket, payment, isBankTransfer: false, holdExpiresAtUtc);
+                    await ShowPaymentDialogAsync(ticket, payment, isBankTransfer: false, holdExpiresAtUtc);
                     _navigationService.NavigateTo<MyTicketsViewModel>();
                     return;
 
                 default:
-                    ShowPaymentDialog(ticket, payment, isBankTransfer: true, holdExpiresAtUtc);
+                    await ShowPaymentDialogAsync(ticket, payment, isBankTransfer: true, holdExpiresAtUtc);
                     _navigationService.NavigateTo<MyTicketsViewModel>();
                     return;
             }
@@ -172,24 +174,21 @@ public sealed class BookingConfirmationViewModel : ViewModelBase
         finally { IsBusy = false; }
     }
 
-    private void ShowPaymentDialog(TicketDetails ticket, PaymentResult payment, bool isBankTransfer, DateTime holdExpiresAtUtc)
+    private async Task ShowPaymentDialogAsync(TicketDetails ticket, PaymentResult payment, bool isBankTransfer, DateTime holdExpiresAtUtc)
     {
-        var window = new PaymentWindow(
-            new[] { ticket.TicketCode },
+        var outcome = await _paymentDialog.ShowAsync(new PaymentDialogRequest(
+            ticket.TicketCode,
             ticket.TotalPrice,
             payment.TransactionNo ?? string.Empty,
             payment.PaymentUrl,
             isBankTransfer,
-            holdExpiresAtUtc)
-        {
-            Owner = Application.Current.MainWindow
-        };
-        window.ShowDialog();
+            holdExpiresAtUtc));
+
         var holdDisplay = holdExpiresAtUtc.ToLocalTime().ToString("HH:mm");
 
         if (isBankTransfer)
         {
-            if (window.DialogResult == true)
+            if (outcome == PaymentDialogOutcome.TransferSubmitted)
             {
                 NotificationService.Instance.ShowSuccess(
                     LocalizationService.Instance.Format("ToastTransferSubmitted", ticket.TicketCode, holdDisplay));
@@ -202,7 +201,7 @@ public sealed class BookingConfirmationViewModel : ViewModelBase
             return;
         }
 
-        if (window.PaymentConfirmed)
+        if (outcome == PaymentDialogOutcome.GatewayConfirmed)
         {
             NotificationService.Instance.ShowSuccess(
                 LocalizationService.Instance.Format("ToastVnPayConfirmed", ticket.TicketCode));

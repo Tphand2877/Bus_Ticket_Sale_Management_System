@@ -158,6 +158,7 @@ public sealed class DomainModelTests
 
         var confirmation = new BookingConfirmationViewModel(
             new NavigationService(),
+            new FakePaymentDialogService(),
             trip,
             seats,
             "Nguyễn Văn A",

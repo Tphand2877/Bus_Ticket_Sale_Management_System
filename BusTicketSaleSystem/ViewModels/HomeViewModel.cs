@@ -10,6 +10,7 @@ namespace BusTicketSaleSystem.ViewModels;
 public sealed class HomeViewModel : ViewModelBase, IRefreshable, IDisposable
 {
     private readonly INavigationService _navigationService;
+    private readonly IPaymentDialogService _paymentDialog;
     private string _origin = string.Empty;
     private string _destination = string.Empty;
     private DateTime _departureDate = DateTime.Today.AddDays(1);
@@ -76,9 +77,10 @@ public sealed class HomeViewModel : ViewModelBase, IRefreshable, IDisposable
     public ICommand QuickBookCommand { get; }
     public ICommand RefreshCommand { get; }
     public ICommand ViewCompanyCommand { get; }
-    public HomeViewModel(INavigationService navigationService)
+    public HomeViewModel(INavigationService navigationService, IPaymentDialogService paymentDialog)
     {
         _navigationService = navigationService;
+        _paymentDialog = paymentDialog;
         _origin = LocationService.Instance.CurrentLocation;
         LocationService.Instance.LocationChanged += OnLocationChanged;
         SearchCommand = new RelayCommand(() => _navigationService.NavigateTo<BookingViewModel>());
@@ -98,7 +100,7 @@ public sealed class HomeViewModel : ViewModelBase, IRefreshable, IDisposable
                 "Wifi tốc độ cao, Nước uống miễn phí, Khăn lạnh, Cổng sạc USB, Điều hòa hai chiều, Màn hình LCD giải trí",
                 "SV", "#0F4C81");
 
-            _navigationService.NavigateTo(new BusCompanyDetailViewModel(_navigationService, company));
+            _navigationService.NavigateTo(new BusCompanyDetailViewModel(_navigationService, _paymentDialog, company));
         });
     }
 

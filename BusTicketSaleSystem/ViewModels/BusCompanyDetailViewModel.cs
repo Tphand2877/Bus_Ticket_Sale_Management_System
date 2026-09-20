@@ -11,6 +11,7 @@ namespace BusTicketSaleSystem.ViewModels;
 public sealed class BusCompanyDetailViewModel : ViewModelBase, IRefreshable
 {
     private readonly INavigationService _navigationService;
+    private readonly IPaymentDialogService _paymentDialog;
     private readonly string _originFilter;
     private readonly string _destinationFilter;
     private readonly SemaphoreSlim _loadLock = new(1, 1);
@@ -67,12 +68,14 @@ public sealed class BusCompanyDetailViewModel : ViewModelBase, IRefreshable
 
     public BusCompanyDetailViewModel(
         INavigationService navigationService,
+        IPaymentDialogService paymentDialog,
         BusCompanyItem company,
         string? origin = null,
         string? destination = null,
         DateTime? travelDate = null)
     {
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+        _paymentDialog = paymentDialog ?? throw new ArgumentNullException(nameof(paymentDialog));
         _company = company ?? new BusCompanyItem(
             1, "Sao Việt", "1900 1234", 4.8m, 1250, "Hà Nội - Sa Pa",
             "Nhà xe chất lượng cao", "Wifi, Nước uống", "SV", "#0F4C81");
@@ -94,20 +97,20 @@ public sealed class BusCompanyDetailViewModel : ViewModelBase, IRefreshable
                 StatusMessage = "Chuyến xe này không thể đặt do đã hết chỗ hoặc đã khởi hành.";
                 return;
             }
-            _navigationService.NavigateTo(new SeatSelectionViewModel(_navigationService, trip));
+            _navigationService.NavigateTo(new SeatSelectionViewModel(_navigationService, _paymentDialog, trip));
         });
 
         BookSelectedTripCommand = new RelayCommand(
             () =>
             {
                 if (SelectedTrip is null || !SelectedTrip.IsAvailable) return;
-                _navigationService.NavigateTo(new SeatSelectionViewModel(_navigationService, SelectedTrip));
+                _navigationService.NavigateTo(new SeatSelectionViewModel(_navigationService, _paymentDialog, SelectedTrip));
             },
             () => HasSelectedTrip && SelectedTrip?.IsAvailable == true);
 
         BackCommand = new RelayCommand(() =>
         {
-            _navigationService.NavigateTo(new BookingViewModel(_navigationService));
+            _navigationService.NavigateTo<BookingViewModel>();
         });
         RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
     }

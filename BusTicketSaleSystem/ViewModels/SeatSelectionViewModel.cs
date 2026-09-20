@@ -14,6 +14,7 @@ public sealed class SeatSelectionViewModel : ViewModelBase, IRefreshable, IDispo
     private static readonly TimeSpan AutoRefreshInterval = TimeSpan.FromSeconds(20);
 
     private readonly INavigationService _navigationService;
+    private readonly IPaymentDialogService _paymentDialog;
     private readonly DispatcherTimer _autoRefreshTimer;
     private string _passengerName = CurrentUser.Account?.FullName ?? string.Empty;
     private string _passengerPhone = CurrentUser.Account?.Phone ?? string.Empty;
@@ -55,9 +56,10 @@ public sealed class SeatSelectionViewModel : ViewModelBase, IRefreshable, IDispo
     public ICommand BackToBookingCommand { get; }
     public ICommand RefreshCommand { get; }
 
-    public SeatSelectionViewModel(INavigationService navigationService, TripSearchResult trip)
+    public SeatSelectionViewModel(INavigationService navigationService, IPaymentDialogService paymentDialog, TripSearchResult trip)
     {
         _navigationService = navigationService;
+        _paymentDialog = paymentDialog;
         Trip = trip;
 
         GoToConfirmationCommand = new RelayCommand(() =>
@@ -80,7 +82,7 @@ public sealed class SeatSelectionViewModel : ViewModelBase, IRefreshable, IDispo
             }
 
             _navigationService.NavigateTo(new BookingConfirmationViewModel(
-                _navigationService, Trip, selectedSeats, PassengerName.Trim(), PassengerPhone.Trim()));
+                _navigationService, _paymentDialog, Trip, selectedSeats, PassengerName.Trim(), PassengerPhone.Trim()));
         });
 
         BackToBookingCommand = new RelayCommand(() =>

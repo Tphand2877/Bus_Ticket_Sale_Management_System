@@ -3,8 +3,11 @@ using BusTicketSaleSystem.Services;
 using BusTicketSaleSystem.ViewModels;
 using BusTicketSaleSystem.Models;
 
+using Xunit;
+
 namespace BusTicketSaleSystem.Tests;
 
+[Collection(GlobalStateCollection.Name)]
 public sealed class NavigationAndViewModelTests
 {
     private sealed class DummyViewModelA : ViewModelBase { }
@@ -166,7 +169,7 @@ public sealed class NavigationAndViewModelTests
     public void BookingViewModel_SelectCompanyCommand_NavigatesToBusCompanyDetailViewModel()
     {
         var nav = new NavigationService();
-        var bookingVm = new BookingViewModel(nav);
+        var bookingVm = new BookingViewModel(nav, new FakePaymentDialogService());
         nav.NavigateTo(bookingVm);
 
         var company = new BusCompanyItem(
@@ -184,10 +187,13 @@ public sealed class NavigationAndViewModelTests
     public void BusCompanyDetailViewModel_BackCommand_NavigatesBackToBookingViewModel()
     {
         var nav = new NavigationService();
+        var dialog = new FakePaymentDialogService();
+        // Back navigation resolves the page through the factory, as the shell does.
+        nav.SetFactory(_ => new BookingViewModel(nav, dialog));
         var company = new BusCompanyItem(
             1, "Sao Việt", "1900 1234", 4.8m, 1250, "Hà Nội - Hải Phòng",
             "Mô tả", "Wifi", "SV", "#0F4C81");
-        var detailVm = new BusCompanyDetailViewModel(nav, company);
+        var detailVm = new BusCompanyDetailViewModel(nav, dialog, company);
         nav.NavigateTo(detailVm);
 
         detailVm.BackCommand.Execute(null);
@@ -203,7 +209,7 @@ public sealed class NavigationAndViewModelTests
         var company = new BusCompanyItem(
             1, "Sao Việt", "1900 1234", 4.8m, 1250, "Hà Nội - Hải Phòng",
             "Mô tả", "Wifi", "SV", "#0F4C81");
-        var detailVm = new BusCompanyDetailViewModel(nav, company);
+        var detailVm = new BusCompanyDetailViewModel(nav, new FakePaymentDialogService(), company);
         nav.NavigateTo(detailVm);
 
         // 1. Available trip -> Should navigate to SeatSelectionViewModel

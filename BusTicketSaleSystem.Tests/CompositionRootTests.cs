@@ -10,6 +10,7 @@ namespace BusTicketSaleSystem.Tests;
 /// Every ViewModel the shells navigate to must be resolvable from the single
 /// composition root, and each shell must get its own navigator (AUD-A-003).
 /// </summary>
+[Collection(GlobalStateCollection.Name)]
 public sealed class CompositionRootTests
 {
     private static readonly Type[] NavigableViewModels =

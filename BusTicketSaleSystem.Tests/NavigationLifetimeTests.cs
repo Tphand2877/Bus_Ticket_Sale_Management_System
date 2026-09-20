@@ -10,6 +10,7 @@ namespace BusTicketSaleSystem.Tests;
 /// every screen that subscribed to a singleton service leaked one live instance per
 /// navigation, and those dead instances kept reacting to service events.
 /// </summary>
+[Collection(GlobalStateCollection.Name)]
 public sealed class NavigationLifetimeTests
 {
     private sealed class TrackingViewModel : ViewModelBase, IDisposable
@@ -68,9 +69,10 @@ public sealed class NavigationLifetimeTests
     public void RepeatedNavigation_DoesNotAccumulateLocationSubscribers()
     {
         var navigation = new NavigationService();
+        var dialog = new FakePaymentDialogService();
         navigation.SetFactory(type => type == typeof(HomeViewModel)
-            ? new HomeViewModel(navigation)
-            : new BookingViewModel(navigation));
+            ? new HomeViewModel(navigation, dialog)
+            : new BookingViewModel(navigation, dialog));
 
         var before = LocationSubscriberCount();
 

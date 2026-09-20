@@ -27,8 +27,8 @@ public static class AppComposition
         // One navigator per shell.
         services.AddScoped<NavigationService>();
         services.AddScoped<INavigationService>(provider => provider.GetRequiredService<NavigationService>());
-
         services.AddSingleton<ISessionService, SessionService>();
+        services.AddSingleton<IPaymentDialogService, Views.PaymentDialogService>();
 
         // Pages are transient so a screen never shows data captured at first construction.
         services.AddTransient<HomeViewModel>();

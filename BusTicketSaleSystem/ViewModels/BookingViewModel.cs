@@ -10,6 +10,7 @@ namespace BusTicketSaleSystem.ViewModels;
 public sealed class BookingViewModel : ViewModelBase, IRefreshable, IDisposable
 {
     private readonly INavigationService _navigationService;
+    private readonly IPaymentDialogService _paymentDialog;
     private bool _isBusy;
     private string _statusMessage = string.Empty;
 
@@ -32,15 +33,16 @@ public sealed class BookingViewModel : ViewModelBase, IRefreshable, IDisposable
     public ICommand RefreshCommand { get; }
     public ICommand SelectCompanyCommand { get; }
     public ICommand BackToHomeCommand { get; }
-    public BookingViewModel(INavigationService navigationService)
+    public BookingViewModel(INavigationService navigationService, IPaymentDialogService paymentDialog)
     {
         _navigationService = navigationService;
+        _paymentDialog = paymentDialog;
         LocationService.Instance.LocationChanged += OnLocationChanged;
         RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
         SelectCompanyCommand = new RelayCommand(parameter =>
         {
             if (parameter is not BusCompanyItem company) return;
-            _navigationService.NavigateTo(new BusCompanyDetailViewModel(_navigationService, company));
+            _navigationService.NavigateTo(new BusCompanyDetailViewModel(_navigationService, _paymentDialog, company));
         });
         BackToHomeCommand = new RelayCommand(() => _navigationService.NavigateTo<HomeViewModel>());
     }
