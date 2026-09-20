@@ -116,7 +116,10 @@ Các phần đã làm:
 - Chặn chọn ghế đã được giữ hoặc đã thanh toán.
 - Đặt toàn bộ các ghế đã chọn trong một transaction `IsolationLevel.Serializable`.
 - Kiểm tra ghế thuộc đúng xe của chuyến.
-- Unique filtered index chống đặt trùng ghế.
+- Chống đặt trùng ghế ở mức cơ sở dữ liệu: unique clustered index
+  `UX_ActiveTicketSeats_Trip_Seat` trên indexed view `dbo.UX_ActiveTicketSeats`
+  (migration 008), cộng với trigger `TR_TicketSeats_AntiDoubleSeat` như lớp phòng vệ
+  thứ hai. Ràng buộc này có hiệu lực ở mọi isolation level và cả khi bỏ qua ứng dụng.
 - Sinh mã vé riêng cho từng ghế dạng `BT-YYYYMMDDHHmmss-XXXX`.
 - Lưu thông tin hành khách riêng trên từng vé.
 
@@ -184,14 +187,88 @@ Tài khoản có role Admin được chuyển vào AdminWindow.
 
 | Bảng | Nội dung |
 |---|---|
-| Accounts | Tài khoản, liên hệ, password hash và role. |
+| Accounts | Tài khoản, liên hệ, password hash, role, bộ đếm đăng nhập sai và thời điểm hết khóa. |
 | Routes | Điểm đi, điểm đến và khoảng cách. |
-| Buses | Biển số, số ghế và loại xe. |
+| Buses | Biển số, số ghế, loại xe, nhà xe và giá chặng. |
 | Trips | Lịch chạy, tuyến, xe, giờ đi, giờ đến và giá vé. |
 | Seats | Sơ đồ ghế theo xe. |
-| Tickets | Vé, hành khách, ghế, chuyến và trạng thái. |
+| Tickets | Vé (một vé cho cả lần đặt), hành khách, chuyến và trạng thái. |
+| TicketSeats | Bảng nối vé ↔ ghế; một dòng cho mỗi ghế của vé. |
 | Payments | Giao dịch, provider, số tiền và trạng thái. |
-| __DatabaseMigrations | Theo dõi migration đã chạy. |
+| BusCompanies | Nhà xe: hotline, đánh giá, khu vực hoạt động, thương hiệu. |
+| AuditLog | Nhật ký các thao tác quản trị nhạy cảm (không thể sửa từ UI). |
+| __DatabaseMigrations | Theo dõi migration đã chạy, kèm checksum. |
+
+```mermaid
+erDiagram
+    Accounts ||--o{ Tickets : books
+    Routes   ||--o{ Trips : "is served by"
+    Buses    ||--o{ Trips : "is assigned to"
+    Buses    ||--o{ Seats : has
+    Trips    ||--o{ Tickets : carries
+    Tickets  ||--|{ TicketSeats : occupies
+    Seats    ||--o{ TicketSeats : "is occupied by"
+    Tickets  ||--o{ Payments : "is paid by"
+    Accounts ||--o{ AuditLog : performs
+
+    Accounts { int AccountId PK
+               nvarchar Username UK
+               nvarchar PasswordHash
+               nvarchar Role
+               int FailedLoginCount
+               datetime2 LockoutEndsAt }
+    Routes   { int RouteId PK
+               nvarchar Origin
+               nvarchar Destination
+               decimal DistanceKm }
+    Buses    { int BusId PK
+               nvarchar LicensePlate UK
+               int SeatCount
+               decimal StagePrice }
+    Trips    { int TripId PK
+               int RouteId FK
+               int BusId FK
+               datetime2 DepartureTime
+               datetime2 ArrivalTime
+               decimal Price }
+    Seats    { int SeatId PK
+               int BusId FK
+               nvarchar SeatNumber }
+    Tickets  { int TicketId PK
+               nvarchar TicketCode UK
+               int TripId FK
+               int AccountId FK
+               decimal Price
+               int SeatCount
+               nvarchar Status
+               nvarchar PaymentStatus
+               datetime2 PaymentExpiresAt }
+    TicketSeats { int TicketSeatId PK
+                  int TicketId FK
+                  int SeatId FK }
+    Payments { int PaymentId PK
+               int TicketId FK
+               nvarchar TransactionNo
+               decimal Amount
+               nvarchar Status
+               datetime2 RefundRequestedAt }
+    AuditLog { bigint AuditId PK
+               int ActorAccountId
+               nvarchar Action
+               nvarchar TargetType
+               nvarchar TargetId }
+```
+
+Các bất biến được cơ sở dữ liệu bảo đảm (không chỉ ở UI):
+
+| Ràng buộc | Bảo đảm điều gì |
+|---|---|
+| `UX_ActiveTicketSeats_Trip_Seat` (indexed view) | Một ghế trên một chuyến chỉ thuộc về đúng một vé còn hiệu lực |
+| `UX_Payments_Live_Ticket` | Mỗi vé chỉ có một payment đang `Pending`/`Success` |
+| `UX_Trips_Bus_Departure` | Một xe không thể có hai chuyến cùng giờ khởi hành |
+| `UQ_Seats_Bus_Number`, `UX_Tickets_TicketCode`, `UQ_BusCompanies_Name` | Khóa nghiệp vụ duy nhất |
+| `TR_TicketSeats_ValidateSeatBus` | Ghế phải thuộc đúng xe của chuyến |
+| `CK_Tickets_Status`, `CK_Tickets_PaymentStatus`, `CK_Payments_*` | Miền giá trị của các trạng thái |
 
 ### Trạng thái vé
 
@@ -363,17 +440,15 @@ Có thể ghi đè bằng các biến môi trường:
 - Chưa có integration test fixture SQL Server tự tạo/xóa cho CI.
 - Chưa kiểm thử đầy đủ timeout, mất mạng và chữ ký VNPay với gateway thật.
 - Test concurrency cần SQL Server fixture riêng.
-
-### Production readiness
-
-- Connection string mặc định dùng SQL Server local và Windows Integrated Security.
-- Secret thanh toán phụ thuộc biến môi trường, chưa có secret store chuyên dụng.
-- Chưa có pipeline CI/CD.
-- Chưa có installer hoặc quy trình publish chính thức.
-- Chưa tự động hóa backup/restore database.
-- Cần thêm retry/cancellation policy cho một số truy vấn và API ngoài.
-
-### Backend
+- Pipeline CI/CD: `.github/workflows/build-test.yml` chạy trên mỗi push/PR,
+  kiểm tra định dạng (`dotnet format`), bật cảnh báo thành lỗi (`-warnaserror`),
+  chạy toàn bộ 114 test (bao gồm các test concurrency thực tế với LocalDB), thu
+  thập độ phủ mã, kiểm toán lỗ hổng gói phụ thuộc và xuất bản bản dựng `win-x64`.
+- Quy trình xuất bản: lệnh `dotnet publish -c Release -r win-x64 --self-contained false`
+  tạo bản dựng chạy độc lập; artifact được CI tự động đóng gói.
+- Chưa tự động hóa backup/restore database theo lịch.
+- Chưa có kênh thanh toán trực tuyến khả dụng trong môi trường thật (VNPay tạm tắt
+  do chưa đăng ký merchant).
 
 - Backend ASP.NET Core cũ đã được loại bỏ khỏi solution.
 - VNPay callback hiện dùng listener localhost trong ứng dụng desktop; mô hình production nhiều máy cần chuyển callback sang service HTTPS công khai trước khi thương mại hóa.
