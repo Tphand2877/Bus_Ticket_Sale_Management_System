@@ -772,10 +772,12 @@ public sealed class AdminBusManagementViewModel : ViewModelBase, IRefreshable
             {
                 foreach (var draft in DraftBuses.ToList())
                 {
-                    int.TryParse(draft.SeatCount, out var count);
-                    int.TryParse(draft.ManufactureYear, out var year);
-                    decimal.TryParse(draft.FarePrice, out var price);
-                    decimal.TryParse(draft.StagePrice, out var sPrice);
+                    // Blank or unparsable fields fall back to zero, which the input
+                    // record then maps to "not specified"; the intent is now explicit.
+                    var count = int.TryParse(draft.SeatCount, out var parsedCount) ? parsedCount : 0;
+                    var year = int.TryParse(draft.ManufactureYear, out var parsedYear) ? parsedYear : 0;
+                    var price = decimal.TryParse(draft.FarePrice, out var parsedPrice) ? parsedPrice : 0m;
+                    var sPrice = decimal.TryParse(draft.StagePrice, out var parsedStage) ? parsedStage : 0m;
 
                     int? routeId = draft.RouteId;
                     if (routeId == null && !string.IsNullOrWhiteSpace(draft.Origin) && !string.IsNullOrWhiteSpace(draft.Destination))
@@ -841,10 +843,10 @@ public sealed class AdminBusManagementViewModel : ViewModelBase, IRefreshable
     }
     private BusRegistrationInput BuildInput()
     {
-        int.TryParse(SeatCount, out var count);
-        int.TryParse(ManufactureYear, out var year);
-        decimal.TryParse(FarePrice, out var price);
-        decimal.TryParse(StagePrice, out var stagePrice);
+        var count = int.TryParse(SeatCount, out var parsedCount) ? parsedCount : 0;
+        var year = int.TryParse(ManufactureYear, out var parsedYear) ? parsedYear : 0;
+        var price = decimal.TryParse(FarePrice, out var parsedPrice) ? parsedPrice : 0m;
+        var stagePrice = decimal.TryParse(StagePrice, out var parsedStage) ? parsedStage : 0m;
         return new BusRegistrationInput(
             CompanyName: string.IsNullOrWhiteSpace(CompanyName) ? "Sao Việt" : CompanyName.Trim(),
             DriverName: string.IsNullOrWhiteSpace(DriverName) ? "Chưa phân công" : DriverName.Trim(),

@@ -26,11 +26,20 @@ public sealed class SqlServerFixture : IAsyncLifetime
 {
     public const string DatabaseName = "BusTicketSaleSystem_Tests";
 
-    private const string ServerConnectionString =
-        "Server=localhost;Database=master;Integrated Security=True;TrustServerCertificate=True;Encrypt=False;Connect Timeout=5;";
+    /// <summary>
+    /// Server hosting the test database. Defaults to the developer's local instance;
+    /// CI overrides it with <c>(localdb)\MSSQLLocalDB</c> via BUS_TICKET_TEST_SERVER.
+    /// </summary>
+    private static string Server =>
+        Environment.GetEnvironmentVariable("BUS_TICKET_TEST_SERVER") is { Length: > 0 } server
+            ? server
+            : "localhost";
 
-    private const string TestConnectionString =
-        "Server=localhost;Database=" + DatabaseName + ";Integrated Security=True;TrustServerCertificate=True;Encrypt=False;Connect Timeout=5;";
+    private static string ServerConnectionString =>
+        $"Server={Server};Database=master;Integrated Security=True;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;";
+
+    private static string TestConnectionString =>
+        $"Server={Server};Database={DatabaseName};Integrated Security=True;TrustServerCertificate=True;Encrypt=False;Connect Timeout=15;";
 
     /// <summary>Null when the fixture is usable; otherwise the reason the tests must skip.</summary>
     public string? SkipReason { get; private set; }

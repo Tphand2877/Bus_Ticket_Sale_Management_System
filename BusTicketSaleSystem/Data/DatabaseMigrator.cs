@@ -269,6 +269,6 @@ IF COL_LENGTH(N'dbo.__DatabaseMigrations', N'Checksum') IS NULL
         script = Regex.Replace(script, @"^\s*USE\s+[^;\r\n]+;\s*$", string.Empty, RegexOptions.Multiline | RegexOptions.IgnoreCase);
         return Regex.Replace(script, @"^\s*IF\s+DB_ID\([^)]+\)\s+IS\s+NULL\s+CREATE\s+DATABASE\s+[^;]+;\s*$", string.Empty, RegexOptions.Multiline | RegexOptions.IgnoreCase);
     }
-    private static IEnumerable<string> SplitBatches(string script) =>
+    private static string[] SplitBatches(string script) =>
         Regex.Split(script, @"^\s*GO\s*(?:--.*)?$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
 }

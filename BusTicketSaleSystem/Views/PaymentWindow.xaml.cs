@@ -5,7 +5,7 @@ using BusTicketSaleSystem.ViewModels;
 
 namespace BusTicketSaleSystem.Views;
 
-public partial class PaymentWindow : Window
+public partial class PaymentWindow : Window, IDisposable
 {
     private readonly PaymentWindowViewModel _viewModel;
 
@@ -31,9 +31,16 @@ public partial class PaymentWindow : Window
         Close();
     }
 
-    private void PaymentWindow_Closed(object? sender, EventArgs e)
+    private void PaymentWindow_Closed(object? sender, EventArgs e) => Dispose();
+
+    /// <summary>
+    /// The window owns its ViewModel's timers and its subscription to the static
+    /// settlement event, so closing must release them.
+    /// </summary>
+    public void Dispose()
     {
         _viewModel.RequestClose -= OnRequestClose;
         _viewModel.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

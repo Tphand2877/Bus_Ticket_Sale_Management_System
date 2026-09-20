@@ -497,7 +497,7 @@ WHERE 1=1
   {(hasOrigin ? "AND (r.Origin LIKE @Origin OR bc.OperatingArea LIKE @Origin)" : "")}
   {(hasDest ? "AND (r.Destination LIKE @Dest OR bc.OperatingArea LIKE @Dest)" : "")}
 GROUP BY TRIM(bc.CompanyName)
-ORDER BY ActiveTripsCount DESC, MAX(bc.Rating) DESC, TRIM(bc.CompanyName);" ;
+ORDER BY ActiveTripsCount DESC, MAX(bc.Rating) DESC, TRIM(bc.CompanyName);";
 
         var list = new List<BusCompanyItem>();
         try
@@ -1087,7 +1087,7 @@ JOIN Trips tr ON tr.TripId = tk.TripId
 JOIN Routes r ON r.RouteId = tr.RouteId
 WHERE tk.AccountId = @AccountId
   AND (tk.Status = N'Đã sử dụng' OR (tk.Status IN (N'Đã đặt', N'Đã thanh toán') AND tr.DepartureTime < SYSUTCDATETIME()));";
- 
+
         try
         {
             await using var connection = GetConnection();

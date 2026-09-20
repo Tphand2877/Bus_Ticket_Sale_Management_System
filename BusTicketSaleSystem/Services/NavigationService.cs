@@ -41,7 +41,7 @@ namespace BusTicketSaleSystem.Services
         /// </summary>
         public void Register<TViewModel>(TViewModel viewModel) where TViewModel : ViewModelBase
         {
-            if (viewModel == null) throw new ArgumentNullException(nameof(viewModel));
+            ArgumentNullException.ThrowIfNull(viewModel);
             _singletons[typeof(TViewModel)] = viewModel;
         }
 
@@ -76,7 +76,7 @@ namespace BusTicketSaleSystem.Services
         /// </summary>
         public void NavigateTo(ViewModelBase viewModel)
         {
-            if (viewModel == null) throw new ArgumentNullException(nameof(viewModel));
+            ArgumentNullException.ThrowIfNull(viewModel);
             Activate(viewModel);
         }
 

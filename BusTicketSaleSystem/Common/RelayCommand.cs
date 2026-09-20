@@ -27,7 +27,7 @@ namespace BusTicketSaleSystem.Common
         public RelayCommand(Action execute, Func<bool>? canExecute = null)
             : this(_ => execute(), canExecute != null ? _ => canExecute() : null)
         {
-            if (execute == null) throw new ArgumentNullException(nameof(execute));
+            ArgumentNullException.ThrowIfNull(execute);
         }
 
         public bool CanExecute(object? parameter)

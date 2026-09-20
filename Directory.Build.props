@@ -1,0 +1,26 @@
+<Project>
+
+  <!--
+    Repository-wide build settings (AUD-G-001).
+
+    The pre-upgrade build reported "0 warnings", but with the SDK's default analyzer
+    set and non-fatal warnings that said nothing about code health: forcing analyzers
+    on surfaced CA2100 (SQL command review), CA2000 (undisposed objects), CA1001
+    (disposable fields on non-disposable types) and CA1031 (catch-all) across the
+    code base.
+
+    TreatWarningsAsErrors is deliberately NOT enabled wholesale yet: the remaining
+    analyzer backlog is triaged in .editorconfig, rule by rule, with a justification
+    for every rule that is turned down. Blanket NoWarn and mass #pragma are
+    prohibited by AGENTS.md R8.
+  -->
+  <PropertyGroup>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Version>1.1.0</Version>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

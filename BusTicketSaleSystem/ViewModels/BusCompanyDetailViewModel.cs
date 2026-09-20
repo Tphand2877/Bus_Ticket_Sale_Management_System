@@ -8,7 +8,7 @@ using System.Windows.Input;
 
 namespace BusTicketSaleSystem.ViewModels;
 
-public sealed class BusCompanyDetailViewModel : ViewModelBase, IRefreshable
+public sealed class BusCompanyDetailViewModel : ViewModelBase, IRefreshable, IDisposable
 {
     private readonly INavigationService _navigationService;
     private readonly IPaymentDialogService _paymentDialog;
@@ -173,4 +173,10 @@ public sealed class BusCompanyDetailViewModel : ViewModelBase, IRefreshable
         SelectedPickupPoint = AvailablePickupPoints.Count > 0 ? AvailablePickupPoints[0] : SelectedTrip.Origin;
         SelectedDropoffPoint = AvailableDropoffPoints.Count > 1 ? AvailableDropoffPoints[^1] : SelectedTrip.Destination;
     }
+
+    /// <summary>
+    /// Releases the load gate. The navigator disposes the page it navigates away
+    /// from, so this runs exactly once per visit (AUD-W2-02).
+    /// </summary>
+    public void Dispose() => _loadLock.Dispose();
 }

@@ -1,0 +1,78 @@
+root = true
+
+# Repository code style and analyzer severities (AUD-G-002).
+#
+# Every rule turned below its default carries a justification. Blanket NoWarn and mass
+# #pragma are prohibited (AGENTS.md R8); a rule is either fixed, or configured here with
+# a reason, or left at its default severity.
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{xml,csproj,props,targets,xaml,yml,yaml,json}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+# Conventions already used throughout the code base.
+csharp_style_namespace_declarations = file_scoped:suggestion
+csharp_style_var_for_built_in_types = true:silent
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:silent
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_naming_rule.private_fields_underscore.severity = suggestion
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+# CA2007 — ConfigureAwait(false). This is a WPF application: continuations that touch
+# bound state must return to the dispatcher, which is exactly what the default does.
+dotnet_diagnostic.CA2007.severity = none
+
+# CA1515 — "type could be internal". The ViewModels and services are bound from XAML
+# and resolved by the container by type; making them internal buys nothing here.
+dotnet_diagnostic.CA1515.severity = none
+
+# CA1305/CA1307/CA1310 — explicit culture/comparison. Genuine, and partly fixed, but the
+# remaining sites are user-facing Vietnamese display formatting where the current culture
+# is the intended behaviour. Left as suggestions rather than silently suppressed.
+dotnet_diagnostic.CA1305.severity = suggestion
+dotnet_diagnostic.CA1307.severity = suggestion
+dotnet_diagnostic.CA1310.severity = suggestion
+
+# CA1822 — "member can be static". Marking bound ViewModel members static breaks the
+# bindings that call them.
+dotnet_diagnostic.CA1822.severity = suggestion
+
+# CA1861 — constant arrays as fields. Micro-optimisation on cold paths; not worth
+# churning the call sites for.
+dotnet_diagnostic.CA1861.severity = suggestion
+
+# CA1031 — catch(Exception). Deliberate at the three boundaries that must not take the
+# application down: the dispatcher handler, the background maintenance loop and the
+# navigation refresh. Each logs. Kept visible as a suggestion so new ones are noticed.
+dotnet_diagnostic.CA1031.severity = suggestion
+
+# CA2100 — review SQL command text. Reviewed during the audit: every user value is a
+# SqlParameter and the interpolated fragments are compile-time literals. Kept at
+# suggestion so a genuinely new dynamic query is still flagged for review.
+dotnet_diagnostic.CA2100.severity = suggestion
+
+[BusTicketSaleSystem.Tests/**.cs]
+# CA1707 — underscores in identifiers. Test names are sentences by convention.
+dotnet_diagnostic.CA1707.severity = none
+# CA1711 — type name suffix. xunit's own pattern is <Name>Collection for a
+# CollectionDefinition.
+dotnet_diagnostic.CA1711.severity = none
+# CA1859 — concrete return types for performance. Irrelevant in test helpers.
+dotnet_diagnostic.CA1859.severity = none
