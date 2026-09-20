@@ -87,3 +87,57 @@ The GUI was not launched. The following require a human at the application.
 | Admin → Accounts | Any account | Reset password to `password` | Refused by the complexity policy | Accepted |
 | Admin → Trips/Routes | Workstation pinned to station X via `STATION_LOCATION` | Create a trip on a route that touches neither endpoint of X | Refused, naming station X | Trip is created |
 | Admin → Buses | Bus with seats and no trips/tickets | Delete it | Bus and its seats both disappear, or neither does | Bus remains with an empty seat map while the UI reports success |
+
+---
+
+## Wave 2 — Stability and performance
+
+### Result
+
+| | |
+|---|---|
+| Build | **0 errors, 0 warnings** |
+| Tests | **97 passed, 0 failed, 0 skipped** (Wave 1 ended at 84) |
+| Migrations added | 2 (`013` indexes, `014` StagePrice), applied to Dev and Test; no Dev data modified |
+| Packages added/upgraded | none |
+| Tag | `wave-2` |
+
+### Completed items
+
+| Item | Commit | Change | Verification |
+|---|---|---|---|
+| AUD-W2-01 | `524dedd` | All 35 `new RelayCommand(async …)` sites became `AsyncRelayCommand`, which refuses re-entry for the whole in-flight window and routes faults to the logger. | 2 `CommandReentrancyTests` |
+| AUD-W2-02 | `4939199` | Named handlers, `IDisposable` on Home/Booking/Profile/NotificationHost, and `NavigationService` disposes the outgoing non-singleton ViewModel. | 4 `NavigationLifetimeTests`, including a subscriber-count assertion over 20 navigations |
+| AUD-W2-03 | `5a25d7e` | `DispatcherUnhandledException` continues only for retryable infrastructure faults and shows a correlation id that appears in the log. | build; manual checklist row |
+| AUD-W2-04 | `5a25d7e` | Maintenance loop moved from `DispatcherTimer`/`async void` to `PeriodicTimer` on the thread pool, catching at the loop boundary. | build; suite |
+| AUD-W2-05 | `5a25d7e` | Expiry sweep is one `XACT_ABORT` transaction returning the number of holds released. | 2 `ExpirySweepTests` |
+| AUD-W2-06 | `2deeec7` | A failed seat-hold compensation now names the ticket code in the log. | code review; log path |
+| AUD-W2-07 | `39840b4` (Wave 1) | Refund refused for a travelled ticket. | `AuditTrailTests` |
+| AUD-W2-08 | `e5668cd` | `GetDashboardStatsAsync`, `GetDestinationsByOriginAsync`, `GetLocationListAsync` and `GetSeatsAsync` log and degrade instead of throwing. | build; suite |
+| AUD-W2-09 | `d9b9987` | `CancelTicketAsync` delegates settled tickets to `RequestRefundAsync`; one precondition set governs the rule. | 2 `TicketReleaseTests` |
+| AUD-W2-10 | `e5668cd` | Booking retries up to three times with backoff on a transient fault (1205, -2, and the connection/throttling family); exhausted retries return a friendly "system is busy". | concurrency suite; `SqlResilience` |
+| AUD-W2-11 | `e5668cd` | `IX_Tickets_Trip_Status` and `IX_TicketSeats_Seat` cover the seat-availability predicates. | `SET STATISTICS IO` on the seat query: 2 logical reads on `Seats`, 4 on `Trips` |
+| AUD-W2-12 | `2deeec7` | `StagePrice` became tracked migration `017_StagePrice`, the startup DDL probe is gone, and applied scripts carry a SHA-256 checksum that is verified on every start. | 3 `MigrationHistoryTests`, including a forced drift |
+| AUD-W2-13 | `d9b9987` | Company back-fill runs once per process instead of on every read; admin dashboard issues its four reads concurrently. | build; suite |
+| AUD-W2-16 | `d9b9987` | QR encoders disposed. | build |
+
+### Deferred within Wave 2
+
+`AUD-W2-14` (cancellation tokens through the UI-facing data methods) and `AUD-W2-15` (`RelayCommand` requery cost and a single-notification collection refresh) are both Medium and both touch the `IRefreshable` signature and command plumbing that Wave 3's composition root reshapes. Doing them first would mean doing them twice, so they are scheduled after `AUD-W3-03`.
+
+### Risks carried forward
+
+- Disposal is now navigator-owned; a ViewModel that starts a timer but is shown outside `NavigationService` (dialog windows) still owns its own teardown. `PaymentWindowViewModel` already does this correctly.
+- The checksum guard makes an edited migration a hard startup failure. That is the intent, but an operator who edits a script in the field now gets a refusal rather than silent divergence — documented in the error message itself.
+
+### Manual test checklist — Wave 2
+
+| Screen | Preconditions | Action | Expected result | Failure symptom |
+|---|---|---|---|---|
+| Any admin form | Admin signed in | Double-click Register / Save / Delete rapidly | Exactly one record is written; the button is disabled while the operation runs | Two records, or a duplicate-key error dialog |
+| Login | — | Double-click Sign in | One sign-in attempt in `Logs/app-*.log` | Two attempts |
+| Home ↔ Booking | — | Navigate between them twenty times, then change the station | The location banner updates once, and one database query is issued | Repeated identical queries, or a growing memory footprint |
+| Seat selection | Trip open | Navigate away, wait 60 seconds | No further seat-map queries in the log | Queries continue every 20 seconds |
+| Admin → Dashboard | Populated database | Open the dashboard | Loads in roughly the time of one query, not four | Visibly stepwise loading |
+| Any screen | SQL Server stopped | Open home, booking, seat selection | Empty content plus a logged error | The generic system-error dialog |
+| Any screen | Force an unexpected error (e.g. corrupt a binding) | — | The dialog shows a reference id that appears verbatim in the log | No reference id |
