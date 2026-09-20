@@ -228,8 +228,23 @@ SELECT COUNT(*),
 FROM Tickets tk
 JOIN Trips tr ON tr.TripId = tk.TripId
 WHERE tk.AccountId = @AccountId;";
-        await using var connection = GetConnection(); await connection.OpenAsync(); await using var command = new SqlCommand(sql, connection); command.Parameters.Add("@AccountId", SqlDbType.Int).Value = accountId;
-        await using var reader = await command.ExecuteReaderAsync(); await reader.ReadAsync(); return (reader.GetInt32(0), reader.GetInt32(1), reader.GetDecimal(2));
+        try
+        {
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(sql, connection);
+            command.Parameters.Add("@AccountId", SqlDbType.Int).Value = accountId;
+            await using var reader = await command.ExecuteReaderAsync();
+            await reader.ReadAsync();
+            return (reader.GetInt32(0), reader.GetInt32(1), reader.GetDecimal(2));
+        }
+        catch (SqlException ex)
+        {
+            // Matches the convention of the surrounding read methods: log and degrade
+            // rather than throw a raw SqlException at the dispatcher (AUD-C-014).
+            LoggerService.LogError($"Could not load dashboard counters for account {accountId}.", ex);
+            return (0, 0, 0m);
+        }
     }
 
     public static async Task<IReadOnlyList<PopularRouteItem>> GetPopularRoutesAsync(int top = 4)
@@ -299,28 +314,44 @@ ORDER BY COUNT(t.TripId) DESC, r.RouteId;";
     {
         const string filteredSql = "SELECT DISTINCT Destination FROM Routes WHERE Origin = @Origin ORDER BY Destination;";
         const string allSql = "SELECT DISTINCT Destination FROM Routes ORDER BY Destination;";
-        await using var connection = GetConnection();
-        await connection.OpenAsync();
-        await using var command = new SqlCommand(string.IsNullOrWhiteSpace(origin) ? allSql : filteredSql, connection);
-        if (!string.IsNullOrWhiteSpace(origin))
-            command.Parameters.Add("@Origin", SqlDbType.NVarChar, 100).Value = origin.Trim();
-        var list = new List<string>();
-        await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-            list.Add(reader.GetString(0));
-        return list;
+        try
+        {
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(string.IsNullOrWhiteSpace(origin) ? allSql : filteredSql, connection);
+            if (!string.IsNullOrWhiteSpace(origin))
+                command.Parameters.Add("@Origin", SqlDbType.NVarChar, 100).Value = origin.Trim();
+            var list = new List<string>();
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                list.Add(reader.GetString(0));
+            return list;
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError("Could not load the destination list.", ex);
+            return [];
+        }
     }
 
     private static async Task<IReadOnlyList<string>> GetLocationListAsync(string sql)
     {
-        await using var connection = GetConnection();
-        await connection.OpenAsync();
-        await using var command = new SqlCommand(sql, connection);
-        var list = new List<string>();
-        await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-            list.Add(reader.GetString(0));
-        return list;
+        try
+        {
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(sql, connection);
+            var list = new List<string>();
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                list.Add(reader.GetString(0));
+            return list;
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError("Could not load a location list.", ex);
+            return [];
+        }
     }
 
     public static string EscapeLikePattern(string term) => term
@@ -628,7 +659,22 @@ CONVERT(bit,CASE WHEN EXISTS(
       AND (t.PaymentStatus=N'Đã thanh toán' OR t.PaymentExpiresAt>SYSUTCDATETIME())
 ) THEN 1 ELSE 0 END)
 FROM Seats s JOIN Trips tr ON tr.BusId=s.BusId WHERE tr.TripId=@TripId ORDER BY s.SeatId;";
-        var seats = new List<SeatInfo>(); await using var connection = GetConnection(); await connection.OpenAsync(); await using var command = new SqlCommand(sql, connection); command.Parameters.Add("@TripId", SqlDbType.Int).Value = tripId; await using var reader = await command.ExecuteReaderAsync(); while (await reader.ReadAsync()) seats.Add(new SeatInfo(reader.GetInt32(0),reader.GetInt32(1),reader.GetString(2),reader.GetBoolean(3))); return seats;
+        var seats = new List<SeatInfo>();
+        try
+        {
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(sql, connection);
+            command.Parameters.Add("@TripId", SqlDbType.Int).Value = tripId;
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                seats.Add(new SeatInfo(reader.GetInt32(0), reader.GetInt32(1), reader.GetString(2), reader.GetBoolean(3)));
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not load the seat map for trip {tripId}.", ex);
+        }
+        return seats;
     }
 
     public static async Task<(bool Success, TicketDetails? Ticket, string? Error)> BookTicketAsync(int accountId, int tripId, int seatId, string passengerName, string? passengerPhone)
@@ -664,6 +710,31 @@ FROM Seats s JOIN Trips tr ON tr.BusId=s.BusId WHERE tr.TripId=@TripId ORDER BY 
             LoggerService.LogError($"Could not expire pending payments before booking (account={accountId}, trip={tripId}).", ex);
             return (false, null, "Could not reach the payment data. Check the database connection and migrations.");
         }
+
+        // The unit of work below either commits or rolls back completely, so a
+        // transient server fault — typically a deadlock over the seat range — can be
+        // retried without risk of double-applying (AUD-B-006).
+        try
+        {
+            return await SqlResilience.ExecuteAsync(
+                () => BookSeatsCoreAsync(accountId, tripId, requestedSeatIds, passengerName, passengerPhone),
+                $"book {requestedSeatIds.Length} seat(s) on trip {tripId}");
+        }
+        catch (SqlException ex)
+        {
+            // Every retry lost the race as well.
+            LoggerService.LogError($"Could not book {requestedSeatIds.Length} seat(s) after retries (account={accountId}, trip={tripId}).", ex);
+            return (false, null, "The seats could not be booked because the system is busy. Please try again.");
+        }
+    }
+
+    private static async Task<(bool Success, TicketDetails? Ticket, string? Error)> BookSeatsCoreAsync(
+        int accountId,
+        int tripId,
+        int[] requestedSeatIds,
+        string passengerName,
+        string? passengerPhone)
+    {
 
         // Insert one ticket row; Price = per-seat fare from Trips, SeatCount = number of seats.
         const string insertTicket = @"
@@ -744,16 +815,22 @@ WHERE EXISTS(SELECT 1 FROM Seats s JOIN Trips tr ON tr.BusId=s.BusId WHERE tr.Tr
             await transaction.CommitAsync();
             return (true, ticket, null);
         }
+        catch (SqlException ex) when (SqlResilience.IsTransient(ex))
+        {
+            // Rolled back completely, so the caller's retry can start clean. If the
+            // retries run out the exception surfaces from BookTicketsAsync's wrapper.
+            await RollbackQuietlyAsync(transaction);
+            throw;
+        }
         catch (SqlException ex)
         {
             await RollbackQuietlyAsync(transaction);
             LoggerService.LogError($"Could not book {requestedSeatIds.Length} seat(s) (account={accountId}, trip={tripId}).", ex);
 
             // 2601/2627: the (TripId, SeatId) uniqueness object refused the write.
-            // 51001/51002: a TicketSeats trigger refused it. 1205: this session lost
-            // the race as the deadlock victim. All four mean the same thing to the
-            // customer, and none of them is a connection problem.
-            return ex.Number is 2601 or 2627 or 1205 or 51001 or 51002
+            // 51001/51002: a TicketSeats trigger refused it. Both mean the same thing
+            // to the customer, and neither is a connection problem.
+            return ex.Number is 2601 or 2627 or 51001 or 51002
                 ? (false, null, "One of the selected seats has just been taken or is not valid for this trip.")
                 : (false, null, "Could not book the selected seats. Check the database connection and trip data.");
         }
