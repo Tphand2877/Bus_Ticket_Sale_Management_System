@@ -41,7 +41,7 @@ public sealed class LoginViewModel : ViewModelBase
 
     public LoginViewModel()
     {
-        SignInCommand = new RelayCommand(async () => await SignInAsync(), () => !IsBusy);
+        SignInCommand = new AsyncRelayCommand(async () => await SignInAsync(), () => !IsBusy);
         GoToSignUpCommand = new RelayCommand(() =>
         {
             ErrorMessage = string.Empty;

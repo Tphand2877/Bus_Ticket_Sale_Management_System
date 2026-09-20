@@ -84,7 +84,7 @@ public sealed class TicketViewModel : ViewModelBase
         PrintTicketCommand = new RelayCommand(PrintTicket);
         ExportPngCommand = new RelayCommand(ExportPng);
         ExportPdfCommand = new RelayCommand(ExportPdf);
-        EmailTicketCommand = new RelayCommand(async () => await EmailTicketAsync(), () => CanEmailTicket);
+        EmailTicketCommand = new AsyncRelayCommand(async () => await EmailTicketAsync(), () => CanEmailTicket);
         ViewRouteOnMapCommand = new RelayCommand(ViewRouteOnMap);
     }
 

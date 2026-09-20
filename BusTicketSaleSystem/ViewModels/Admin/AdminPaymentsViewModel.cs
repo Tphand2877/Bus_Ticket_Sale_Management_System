@@ -98,8 +98,8 @@ public sealed class AdminPaymentsViewModel : ViewModelBase, IRefreshable
 
     public AdminPaymentsViewModel()
     {
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
-        SearchCommand = new RelayCommand(async () => await RefreshAsync());
+        RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
+        SearchCommand = new AsyncRelayCommand(async () => await RefreshAsync());
         ClearMessageCommand = new RelayCommand(() => Message = "");
         SelectPaymentCommand = new RelayCommand(p =>
         {

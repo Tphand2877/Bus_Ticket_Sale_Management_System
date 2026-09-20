@@ -316,10 +316,10 @@ public sealed class AdminBusManagementViewModel : ViewModelBase, IRefreshable
                 IsFormVisible = true;
             }
         });
-        AddCommand = new RelayCommand(async () => await AddAsync(keepFormOpenForNextBus: false));
-        AddAndContinueCommand = new RelayCommand(async () => await AddAsync(keepFormOpenForNextBus: true));
-        UpdateCommand = new RelayCommand(async () => await UpdateAsync(), () => IsEditing);
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
+        AddCommand = new AsyncRelayCommand(async () => await AddAsync(keepFormOpenForNextBus: false));
+        AddAndContinueCommand = new AsyncRelayCommand(async () => await AddAsync(keepFormOpenForNextBus: true));
+        UpdateCommand = new AsyncRelayCommand(async () => await UpdateAsync(), () => IsEditing);
+        RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
 
         PresetMorningCommand = new RelayCommand(() => AppendOrSetTimeSlot("06:00, 08:30"));
         PresetNoonCommand = new RelayCommand(() => AppendOrSetTimeSlot("11:00, 13:30"));
@@ -362,7 +362,7 @@ public sealed class AdminBusManagementViewModel : ViewModelBase, IRefreshable
                 Message = $"Đã xóa xe {draft.Plate} khỏi danh sách chờ.";
             }
         });
-        SaveAllBusesCommand = new RelayCommand(async () => await SaveAllBusesAsync());
+        SaveAllBusesCommand = new AsyncRelayCommand(async () => await SaveAllBusesAsync());
         AddStopToRouteCommand = new RelayCommand(p =>
         {
             var stop = p as string ?? SelectedStopOption;
@@ -421,7 +421,7 @@ public sealed class AdminBusManagementViewModel : ViewModelBase, IRefreshable
             PendingDelete = b;
         });
         CancelDeleteCommand = new RelayCommand(() => PendingDelete = null);
-        ConfirmDeleteCommand = new RelayCommand(async () => await DeleteAsync(), () => IsConfirmingDelete);
+        ConfirmDeleteCommand = new AsyncRelayCommand(async () => await DeleteAsync(), () => IsConfirmingDelete);
     }
 
     public async Task RefreshAsync()

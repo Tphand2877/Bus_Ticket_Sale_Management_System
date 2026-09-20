@@ -50,8 +50,8 @@ public sealed class ProfileViewModel : ViewModelBase, IRefreshable
     public ProfileViewModel(INavigationService navigationService)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
-        SaveProfileCommand = new RelayCommand(async () => await SaveProfileAsync(), () => !IsBusy);
-        ChangePasswordCommand = new RelayCommand(async () => await ChangePasswordAsync(), () => !IsBusy);
+        SaveProfileCommand = new AsyncRelayCommand(async () => await SaveProfileAsync(), () => !IsBusy);
+        ChangePasswordCommand = new AsyncRelayCommand(async () => await ChangePasswordAsync(), () => !IsBusy);
         SelectVietnameseCommand = new RelayCommand(() => LocalizationService.Instance.SetLanguage(LocalizationService.Vietnamese));
         SelectEnglishCommand = new RelayCommand(() => LocalizationService.Instance.SetLanguage(LocalizationService.English));
         ToggleLanguageCommand = new RelayCommand(() => LocalizationService.Instance.ToggleLanguage());

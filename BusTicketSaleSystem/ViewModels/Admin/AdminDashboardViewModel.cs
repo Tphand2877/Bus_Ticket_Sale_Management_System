@@ -77,7 +77,7 @@ public sealed class AdminDashboardViewModel : ViewModelBase, IRefreshable
     public AdminDashboardViewModel(NavigationService navigationService)
     {
         _navigationService = navigationService;
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
+        RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
         NavigateRoutesCommand = new RelayCommand(() => _navigationService.NavigateTo<AdminRouteManagementViewModel>());
         NavigateBusesCommand = new RelayCommand(() => _navigationService.NavigateTo<AdminBusManagementViewModel>());
         NavigateTripsCommand = new RelayCommand(() => _navigationService.NavigateTo<AdminTripManagementViewModel>());

@@ -79,9 +79,9 @@ public sealed class AdminTripManagementViewModel : ViewModelBase, IRefreshable
 
     public AdminTripManagementViewModel()
     {
-        AddCommand = new RelayCommand(async () => await AddAsync());
-        UpdateCommand = new RelayCommand(async () => await UpdateAsync(), () => IsEditing);
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
+        AddCommand = new AsyncRelayCommand(async () => await AddAsync());
+        UpdateCommand = new AsyncRelayCommand(async () => await UpdateAsync(), () => IsEditing);
+        RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
         CancelEditCommand = new RelayCommand(() =>
         {
             IsEditing = false;
@@ -108,7 +108,7 @@ public sealed class AdminTripManagementViewModel : ViewModelBase, IRefreshable
             PendingDelete = t;
         });
         CancelDeleteCommand = new RelayCommand(() => PendingDelete = null);
-        ConfirmDeleteCommand = new RelayCommand(async () => await DeleteAsync(), () => IsConfirmingDelete);
+        ConfirmDeleteCommand = new AsyncRelayCommand(async () => await DeleteAsync(), () => IsConfirmingDelete);
     }
 
     public async Task RefreshAsync()

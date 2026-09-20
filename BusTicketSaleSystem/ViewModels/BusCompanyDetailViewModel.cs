@@ -109,7 +109,7 @@ public sealed class BusCompanyDetailViewModel : ViewModelBase, IRefreshable
         {
             _navigationService.NavigateTo(new BookingViewModel(_navigationService));
         });
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
+        RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
     }
     public Task RefreshAsync() => LoadTripsAsync();
 

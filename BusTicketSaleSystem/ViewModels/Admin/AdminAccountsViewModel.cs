@@ -93,8 +93,8 @@ public sealed class AdminAccountsViewModel : ViewModelBase, IRefreshable
 
     public AdminAccountsViewModel()
     {
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
-        ToggleRoleCommand = new RelayCommand(async p => await ToggleRoleAsync(p));
+        RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
+        ToggleRoleCommand = new AsyncRelayCommand(async p => await ToggleRoleAsync(p));
         BeginPasswordResetCommand = new RelayCommand(p =>
         {
             if (p is not AccountAdminItem account) return;
@@ -108,7 +108,7 @@ public sealed class AdminAccountsViewModel : ViewModelBase, IRefreshable
             ResetTarget = null;
             NewPassword = "";
         });
-        ApplyPasswordResetCommand = new RelayCommand(async () => await ApplyPasswordResetAsync(), () => IsResettingPassword);
+        ApplyPasswordResetCommand = new AsyncRelayCommand(async () => await ApplyPasswordResetAsync(), () => IsResettingPassword);
         RequestDeleteCommand = new RelayCommand(p =>
         {
             if (p is not AccountAdminItem account) return;
@@ -117,7 +117,7 @@ public sealed class AdminAccountsViewModel : ViewModelBase, IRefreshable
             PendingDelete = account;
         });
         CancelDeleteCommand = new RelayCommand(() => PendingDelete = null);
-        ConfirmDeleteCommand = new RelayCommand(async () => await DeleteAsync(), () => IsConfirmingDelete);
+        ConfirmDeleteCommand = new AsyncRelayCommand(async () => await DeleteAsync(), () => IsConfirmingDelete);
     }
 
     public async Task RefreshAsync()

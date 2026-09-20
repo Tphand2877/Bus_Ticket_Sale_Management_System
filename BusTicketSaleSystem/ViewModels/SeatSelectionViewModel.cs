@@ -89,7 +89,7 @@ public sealed class SeatSelectionViewModel : ViewModelBase, IRefreshable, IDispo
             _navigationService.NavigateTo<BookingViewModel>();
         });
 
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
+        RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
 
         _autoRefreshTimer = new DispatcherTimer { Interval = AutoRefreshInterval };
         _autoRefreshTimer.Tick += OnAutoRefreshTick;

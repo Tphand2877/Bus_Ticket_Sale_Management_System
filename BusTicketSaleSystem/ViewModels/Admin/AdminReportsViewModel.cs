@@ -49,9 +49,9 @@ public sealed class AdminReportsViewModel : ViewModelBase, IRefreshable
 
     public AdminReportsViewModel()
     {
-        RunReportCommand = new RelayCommand(async () => await RefreshAsync());
-        LastSevenDaysCommand = new RelayCommand(async () => await SetRangeAsync(7));
-        LastThirtyDaysCommand = new RelayCommand(async () => await SetRangeAsync(30));
+        RunReportCommand = new AsyncRelayCommand(async () => await RefreshAsync());
+        LastSevenDaysCommand = new AsyncRelayCommand(async () => await SetRangeAsync(7));
+        LastThirtyDaysCommand = new AsyncRelayCommand(async () => await SetRangeAsync(30));
         ClearMessageCommand = new RelayCommand(() => Message = "");
     }
 

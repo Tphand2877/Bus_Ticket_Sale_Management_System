@@ -40,7 +40,7 @@ public sealed class HistoryViewModel : ViewModelBase, IRefreshable
 
         BookAgainCommand = new RelayCommand(_ => _navigationService.NavigateTo<BookingViewModel>());
 
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
+        RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
     }
 
     public async Task RefreshAsync()

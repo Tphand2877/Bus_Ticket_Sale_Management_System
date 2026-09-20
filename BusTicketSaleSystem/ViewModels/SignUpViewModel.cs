@@ -46,7 +46,7 @@ public sealed partial class SignUpViewModel : ViewModelBase
 
     public SignUpViewModel()
     {
-        CreateAccountCommand = new RelayCommand(async () => await CreateAccountAsync(), () => !IsBusy);
+        CreateAccountCommand = new AsyncRelayCommand(async () => await CreateAccountAsync(), () => !IsBusy);
         CancelCommand = new RelayCommand(() => RegistrationCancelled?.Invoke(), () => !IsBusy);
     }
 

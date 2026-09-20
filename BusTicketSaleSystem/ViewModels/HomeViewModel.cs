@@ -93,8 +93,8 @@ public sealed class HomeViewModel : ViewModelBase, IRefreshable
         QuickBookCommand = new RelayCommand(_ => _navigationService.NavigateTo<BookingViewModel>());
         ViewTicketCommand = new RelayCommand(() => _navigationService.NavigateTo<MyTicketsViewModel>());
         SwapLocationsCommand = new RelayCommand(() => (Origin, Destination) = (Destination, Origin));
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
-        ViewCompanyCommand = new RelayCommand(async parameter =>
+        RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
+        ViewCompanyCommand = new AsyncRelayCommand(async parameter =>
         {
             string companyName = "Sao Việt";
             if (parameter is PopularRouteItem route) companyName = route.CompanyName;

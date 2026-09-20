@@ -68,9 +68,9 @@ public sealed class AdminRouteManagementViewModel : ViewModelBase, IRefreshable
 
     public AdminRouteManagementViewModel()
     {
-        AddCommand = new RelayCommand(async () => await AddAsync());
-        UpdateCommand = new RelayCommand(async () => await UpdateAsync(), () => IsEditing);
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
+        AddCommand = new AsyncRelayCommand(async () => await AddAsync());
+        UpdateCommand = new AsyncRelayCommand(async () => await UpdateAsync(), () => IsEditing);
+        RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
         CancelEditCommand = new RelayCommand(ResetForm);
         SelectForEditCommand = new RelayCommand(p =>
         {
@@ -90,7 +90,7 @@ public sealed class AdminRouteManagementViewModel : ViewModelBase, IRefreshable
             PendingDelete = r;
         });
         CancelDeleteCommand = new RelayCommand(() => PendingDelete = null);
-        ConfirmDeleteCommand = new RelayCommand(async () => await DeleteAsync(), () => IsConfirmingDelete);
+        ConfirmDeleteCommand = new AsyncRelayCommand(async () => await DeleteAsync(), () => IsConfirmingDelete);
     }
 
     public async Task RefreshAsync()

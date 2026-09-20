@@ -44,7 +44,7 @@ public sealed class BookingViewModel : ViewModelBase, IRefreshable
             OnPropertyChanged(nameof(ActiveLocation));
             OnPropertyChanged(nameof(LocationBanner));
         };
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
+        RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
         SelectCompanyCommand = new RelayCommand(parameter =>
         {
             if (parameter is not BusCompanyItem company) return;
