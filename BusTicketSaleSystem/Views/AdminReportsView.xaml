@@ -141,7 +141,17 @@
                     </Grid>
                 </Border>
 
-                <ItemsControl ItemsSource="{Binding Rows}">
+                <!-- Unbounded: a wide date range returns one row per route per day, so
+                     this list must recycle containers like the other admin lists (AUD-F-005). -->
+                <ItemsControl ItemsSource="{Binding Rows}"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              ScrollViewer.CanContentScroll="True">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="18,14">
