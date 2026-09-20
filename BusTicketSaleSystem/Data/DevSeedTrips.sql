@@ -33,27 +33,29 @@ DECLARE @HorizonDays INT = 14;
 
 WHILE @Day <= @HorizonDays
 BEGIN
-    DECLARE @TargetDate DATETIME2 = CAST(DATEADD(DAY, @Day, CAST(GETDATE() AS DATE)) AS DATETIME2);
+    /* Standardized on UTC: target date is calculated from SYSUTCDATETIME(),
+       and slot minutes (defined in Vietnam local time UTC+7) are converted
+       to UTC by subtracting 420 minutes (7 hours). */
+    DECLARE @TargetDate DATETIME2 = CAST(DATEADD(DAY, @Day, CAST(SYSUTCDATETIME() AS DATE)) AS DATETIME2);
 
-    INSERT INTO Trips (RouteId, BusId, DepartureTime, ArrivalTime, Price)
+    INSERT INTO Trips (RouteId, BusId, DepartureTime, ArrivalTime, Price, Status)
     SELECT r.RouteId,
            b.BusId,
-           DATEADD(MINUTE, sl.DepartMinute, @TargetDate),
-           DATEADD(MINUTE, sl.DepartMinute + sl.DurationMinute, @TargetDate),
-           sl.Price
+           DATEADD(MINUTE, sl.DepartMinute - 420, @TargetDate),
+           DATEADD(MINUTE, sl.DepartMinute + sl.DurationMinute - 420, @TargetDate),
+           sl.Price,
+           N'Scheduled'
     FROM @Slots sl
     JOIN Routes r ON r.Origin = sl.Origin AND r.Destination = sl.Destination
     JOIN Buses b ON b.LicensePlate = sl.LicensePlate
     /* Never create a departure in the past. */
-    WHERE DATEADD(MINUTE, sl.DepartMinute, @TargetDate) > SYSUTCDATETIME()
+    WHERE DATEADD(MINUTE, sl.DepartMinute - 420, @TargetDate) > SYSUTCDATETIME()
       AND NOT EXISTS
           (
               SELECT 1
               FROM Trips existing
               WHERE existing.RouteId = r.RouteId
-                AND CAST(existing.DepartureTime AS DATE) = CAST(@TargetDate AS DATE)
-                AND DATEPART(HOUR, existing.DepartureTime) = sl.DepartMinute / 60
-                AND DATEPART(MINUTE, existing.DepartureTime) = sl.DepartMinute % 60
+                AND existing.DepartureTime = DATEADD(MINUTE, sl.DepartMinute - 420, @TargetDate)
           )
       AND NOT EXISTS
           (
@@ -61,8 +63,8 @@ BEGIN
               SELECT 1
               FROM Trips busy
               WHERE busy.BusId = b.BusId
-                AND busy.DepartureTime < DATEADD(MINUTE, sl.DepartMinute + sl.DurationMinute, @TargetDate)
-                AND busy.ArrivalTime > DATEADD(MINUTE, sl.DepartMinute, @TargetDate)
+                AND busy.DepartureTime < DATEADD(MINUTE, sl.DepartMinute + sl.DurationMinute - 420, @TargetDate)
+                AND busy.ArrivalTime > DATEADD(MINUTE, sl.DepartMinute - 420, @TargetDate)
           );
 
     SET @Day = @Day + 1;

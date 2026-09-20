@@ -1,4 +1,5 @@
 using System;
+using QRCoder;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -46,7 +47,7 @@ public sealed class PaymentWindowViewModel : ViewModelBase, IDisposable
         ? "Quét mã QR hoặc chuyển khoản chính xác số tiền với nội dung bên dưới."
         : "Hoàn tất thanh toán trong cửa sổ trình duyệt vừa mở.";
 
-    public BitmapImage? BankQrImage { get; }
+    public BitmapImage? BankQrImage { get; private set; }
     public string AmountText { get; }
     public string ReferenceCaption => IsBankTransfer
         ? (_referenceCount == 1 ? "MÃ NỘI DUNG CHUYỂN KHOẢN" : "CÁC MÃ NỘI DUNG CHUYỂN KHOẢN")
@@ -97,16 +98,42 @@ public sealed class PaymentWindowViewModel : ViewModelBase, IDisposable
 
         if (IsBankTransfer)
         {
-            var qrPath = Path.Combine(AppContext.BaseDirectory, "Assets", "BankTransferQr.jpg");
-            if (File.Exists(qrPath))
+            try
             {
-                try
+                // Generate dynamic VietQR payload with exact amount and ticket reference
+                const string bankBin = "970422"; // MBBank NAPAS BIN
+                const string accountNumber = "0388888888";
+                const string accountName = "OMNIBUS VIETNAM";
+                var cleanRef = string.Join(" ", ticketCodes);
+                var qrPayload = $"https://img.vietqr.io/image/{bankBin}-{accountNumber}-compact2.png?amount={(long)amount}&addInfo={Uri.EscapeDataString(cleanRef)}&accountName={Uri.EscapeDataString(accountName)}";
+
+                using var generator = new QRCodeGenerator();
+                using var data = generator.CreateQrCode(qrPayload, QRCodeGenerator.ECCLevel.M);
+                using var png = new PngByteQRCode(data);
+                var bytes = png.GetGraphic(16);
+                using var stream = new MemoryStream(bytes);
+                var image = new BitmapImage();
+                image.BeginInit();
+                image.CacheOption = BitmapCacheOption.OnLoad;
+                image.StreamSource = stream;
+                image.EndInit();
+                image.Freeze();
+                BankQrImage = image;
+            }
+            catch (Exception ex)
+            {
+                LoggerService.LogError("Không thể tạo mã VietQR động, chuyển sang ảnh dự phòng.", ex);
+                var qrPath = Path.Combine(AppContext.BaseDirectory, "Assets", "BankTransferQr.jpg");
+                if (File.Exists(qrPath))
                 {
-                    BankQrImage = new BitmapImage(new Uri(qrPath, UriKind.Absolute));
-                }
-                catch (Exception ex)
-                {
-                    LoggerService.LogError("Không thể nạp ảnh mã QR chuyển khoản.", ex);
+                    try
+                    {
+                        BankQrImage = new BitmapImage(new Uri(qrPath, UriKind.Absolute));
+                    }
+                    catch (Exception fileEx)
+                    {
+                        LoggerService.LogError("Không thể nạp ảnh mã QR chuyển khoản dự phòng.", fileEx);
+                    }
                 }
             }
 

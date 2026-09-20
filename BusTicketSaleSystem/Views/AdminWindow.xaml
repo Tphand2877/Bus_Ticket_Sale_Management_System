@@ -160,6 +160,28 @@
                         </Grid>
                     </Button>
 
+                    <!-- Check-in / Soát vé -->
+                    <Button Command="{Binding CheckInCommand}"
+                            Style="{StaticResource SidebarButtonStyle}"
+                            Background="{Binding ActiveTab, Converter={StaticResource AdminNavBgConverter}, ConverterParameter=CheckIn}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="3" Height="18" CornerRadius="1.5"
+                                    Background="{Binding ActiveTab, Converter={StaticResource AdminNavIndicatorConverter}, ConverterParameter=CheckIn}"
+                                    HorizontalAlignment="Left"/>
+                            <Path Grid.Column="1" Data="{StaticResource IconTicket}"
+                                  Fill="{Binding ActiveTab, Converter={StaticResource AdminNavIconConverter}, ConverterParameter=CheckIn}"
+                                  Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                            <TextBlock Grid.Column="2" Text="Soát vé / Check-in" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{Binding ActiveTab, Converter={StaticResource AdminNavFgConverter}, ConverterParameter=CheckIn}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
+
                     <!-- Revenue Reports -->
                     <Button Command="{Binding ReportsCommand}"
                             Style="{StaticResource SidebarButtonStyle}"

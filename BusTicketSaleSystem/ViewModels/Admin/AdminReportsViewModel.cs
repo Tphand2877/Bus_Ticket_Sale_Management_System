@@ -76,11 +76,18 @@ public sealed class AdminReportsViewModel : ViewModelBase, IRefreshable
             var rows = await AdminDatabaseService.GetRevenueReportAsync(FromDate.Date, ToDate.Date.AddDays(1));
             Rows.Clear();
             foreach (var row in rows) Rows.Add(row);
+            var totalTickets = rows.Sum(r => r.TicketsSold);
+            var totalGross = rows.Sum(r => r.GrossRevenue);
+            var totalRefunded = rows.Sum(r => r.RefundedAmount);
+            var totalNet = totalGross - totalRefunded;
+            var totalCommission = rows.Sum(r => r.CommissionAmount);
+            var avgCommissionRate = totalNet > 0 ? totalCommission / totalNet : 0.10m;
             Totals = new RevenueReportItem(
                 "All routes",
-                rows.Sum(r => r.TicketsSold),
-                rows.Sum(r => r.GrossRevenue),
-                rows.Sum(r => r.RefundedAmount));
+                totalTickets,
+                totalGross,
+                totalRefunded,
+                avgCommissionRate);
             OnPropertyChanged(nameof(Totals));
             OnPropertyChanged(nameof(RangeDescription));
             Message = "";

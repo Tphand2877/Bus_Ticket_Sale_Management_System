@@ -385,7 +385,8 @@ ORDER BY COUNT(t.TripId) DESC, r.RouteId;";
                 JOIN Routes r ON r.RouteId=t.RouteId
                 JOIN Buses b ON b.BusId=t.BusId
                 LEFT JOIN BusCompanies bc ON bc.CompanyName=b.CompanyName
-                WHERE r.Origin LIKE @Origin AND r.Destination LIKE @Destination {dateClause}
+                WHERE r.Origin LIKE @Origin AND r.Destination LIKE @Destination
+                  AND t.Status = N'Scheduled' {dateClause}
                 ORDER BY t.DepartureTime;";
         var results = new List<TripSearchResult>();
         try
@@ -403,8 +404,8 @@ ORDER BY COUNT(t.TripId) DESC, r.RouteId;";
                     reader.GetString(1),
                     reader.GetString(2),
                     reader.IsDBNull(3) ? "Standard" : reader.GetString(3),
-                    reader.GetDateTime(4),
-                    reader.GetDateTime(5),
+                    DateTime.SpecifyKind(reader.GetDateTime(4), DateTimeKind.Utc),
+                    DateTime.SpecifyKind(reader.GetDateTime(5), DateTimeKind.Utc),
                     reader.GetDecimal(6),
                     reader.GetInt32(7),
                     reader.IsDBNull(8) ? "Sao Việt" : reader.GetString(8),
@@ -625,7 +626,8 @@ ORDER BY ActiveTripsCount DESC, MAX(bc.Rating) DESC, TRIM(bc.CompanyName);";
                 JOIN Routes r ON r.RouteId=t.RouteId
                 JOIN Buses b ON b.BusId=t.BusId
                 LEFT JOIN BusCompanies bc ON bc.CompanyName=b.CompanyName
-                WHERE (b.CompanyName = @Company OR b.CompanyName LIKE @CompanyPattern) {dateClause}
+                WHERE (b.CompanyName = @Company OR b.CompanyName LIKE @CompanyPattern)
+                  AND t.Status = N'Scheduled' {dateClause}
                 ORDER BY t.DepartureTime;";
         var results = new List<TripSearchResult>();
         try
@@ -644,8 +646,8 @@ ORDER BY ActiveTripsCount DESC, MAX(bc.Rating) DESC, TRIM(bc.CompanyName);";
                     reader.GetString(1),
                     reader.GetString(2),
                     reader.IsDBNull(3) ? "Standard" : reader.GetString(3),
-                    reader.GetDateTime(4),
-                    reader.GetDateTime(5),
+                    DateTime.SpecifyKind(reader.GetDateTime(4), DateTimeKind.Utc),
+                    DateTime.SpecifyKind(reader.GetDateTime(5), DateTimeKind.Utc),
                     reader.GetDecimal(6),
                     reader.GetInt32(7),
                     reader.IsDBNull(8) ? "Sao Việt" : reader.GetString(8),
@@ -1107,6 +1109,27 @@ WHERE tk.AccountId = @AccountId
         return (0, 0m);
     }
 
+    public static async Task<TicketDetails?> GetTicketByCodeAsync(string ticketCode)
+    {
+        if (string.IsNullOrWhiteSpace(ticketCode)) return null;
+        var select = TicketProjection + " WHERE tk.TicketCode = @Code;";
+        try
+        {
+            await using var connection = GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(select, connection);
+            command.Parameters.Add("@Code", SqlDbType.NVarChar, 30).Value = ticketCode.Trim();
+            await using var reader = await command.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+                return ReadTicket(reader);
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"Could not load ticket by code '{ticketCode}'.", ex);
+        }
+        return null;
+    }
+
 
     /// <summary>Column list shared by every <see cref="TicketDetails"/> query.</summary>
     private const string TicketProjection = @"
@@ -1142,13 +1165,13 @@ JOIN Buses b ON b.BusId = tr.BusId";
         reader.GetInt32(0),
         reader.GetString(1),
         reader.GetString(2),
-        reader.GetDateTime(3),
-        reader.GetDateTime(4),
+        DateTime.SpecifyKind(reader.GetDateTime(3), DateTimeKind.Utc),
+        DateTime.SpecifyKind(reader.GetDateTime(4), DateTimeKind.Utc),
         reader.IsDBNull(5) ? "" : reader.GetString(5),
         reader.GetString(6),
         reader.GetDecimal(7),
         reader.GetString(8),
-        reader.GetDateTime(9),
+        DateTime.SpecifyKind(reader.GetDateTime(9), DateTimeKind.Utc),
         reader.GetString(10),
         reader.GetString(11),
         reader.GetDecimal(12))
@@ -1157,9 +1180,9 @@ JOIN Buses b ON b.BusId = tr.BusId";
         PassengerPhone = reader.IsDBNull(14) ? null : reader.GetString(14),
         LicensePlate = reader.GetString(15),
         PaymentStatus = reader.GetString(16),
-        PaymentExpiresAt = reader.IsDBNull(17) ? null : reader.GetDateTime(17),
-        UsedAt = reader.IsDBNull(18) ? null : reader.GetDateTime(18),
-        CancelledAt = reader.IsDBNull(19) ? null : reader.GetDateTime(19),
+        PaymentExpiresAt = reader.IsDBNull(17) ? null : DateTime.SpecifyKind(reader.GetDateTime(17), DateTimeKind.Utc),
+        UsedAt = reader.IsDBNull(18) ? null : DateTime.SpecifyKind(reader.GetDateTime(18), DateTimeKind.Utc),
+        CancelledAt = reader.IsDBNull(19) ? null : DateTime.SpecifyKind(reader.GetDateTime(19), DateTimeKind.Utc),
         SeatCount = reader.GetInt32(20)
     };
 

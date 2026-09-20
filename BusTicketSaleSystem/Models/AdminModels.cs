@@ -133,14 +133,32 @@ public sealed class BusDraftItem : ViewModelBase
     public string ScheduleSummary => $"Khung giờ: {DepartureTimeNote}";
 }
 
-public sealed record TripAdminItem(int TripId, int RouteId, int BusId, string Route, string LicensePlate, DateTime DepartureTime, DateTime ArrivalTime, decimal Price)
+public sealed record TripAdminItem(
+    int TripId,
+    int RouteId,
+    int BusId,
+    string Route,
+    string LicensePlate,
+    DateTime DepartureTime,
+    DateTime ArrivalTime,
+    decimal Price,
+    string Status = "Scheduled")
 {
-    public string Schedule => $"{DepartureTime:dd/MM/yyyy HH:mm} - {ArrivalTime:HH:mm}";
+    public string Schedule => $"{DepartureTime.ToLocalTime():dd/MM/yyyy HH:mm} - {ArrivalTime.ToLocalTime():HH:mm}";
     public string PriceDisplay => $"{Price:N0} VND";
-    public string DepartureFormatted => DepartureTime.ToString("dd/MM/yyyy HH:mm");
-    public string ArrivalFormatted => ArrivalTime.ToString("dd/MM/yyyy HH:mm");
-    public string TimeRangeDisplay => $"{DepartureTime:HH:mm} → {ArrivalTime:HH:mm}";
-    public string DateDisplay => DepartureTime.ToString("dd/MM/yyyy");
+    public string DepartureFormatted => DepartureTime.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+    public string ArrivalFormatted => ArrivalTime.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+    public string TimeRangeDisplay => $"{DepartureTime.ToLocalTime():HH:mm} → {ArrivalTime.ToLocalTime():HH:mm}";
+    public string DateDisplay => DepartureTime.ToLocalTime().ToString("dd/MM/yyyy");
+    public bool IsCancelled => Status == "Cancelled";
+    public bool IsDeparted => Status == "Departed";
+    public bool CanCancel => Status == "Scheduled" && DepartureTime > DateTime.UtcNow;
+    public string StatusDisplay => Status switch
+    {
+        "Cancelled" => "Đã hủy",
+        "Departed" => "Đã xuất bến",
+        _ => "Đang chạy"
+    };
 }
 
 public sealed record RecentBookingAdminItem(
@@ -282,10 +300,15 @@ public sealed record RevenueReportItem(
     string RouteSummary,
     int TicketsSold,
     decimal GrossRevenue,
-    decimal RefundedAmount)
+    decimal RefundedAmount,
+    decimal CommissionRate = 0.10m)
 {
     public decimal NetRevenue => GrossRevenue - RefundedAmount;
+    public decimal CommissionAmount => NetRevenue > 0 ? NetRevenue * CommissionRate : 0m;
+    public decimal CompanyPayout => NetRevenue > 0 ? NetRevenue - CommissionAmount : 0m;
     public string GrossRevenueDisplay => $"{GrossRevenue:N0} VND";
     public string RefundedAmountDisplay => $"{RefundedAmount:N0} VND";
     public string NetRevenueDisplay => $"{NetRevenue:N0} VND";
+    public string CommissionDisplay => $"{CommissionAmount:N0} VND ({CommissionRate * 100:0.#}%)";
+    public string PayoutDisplay => $"{CompanyPayout:N0} VND";
 }

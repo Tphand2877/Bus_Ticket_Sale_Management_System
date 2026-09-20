@@ -25,6 +25,7 @@ public sealed class AdminMainViewModel : ViewModelBase
     public ICommand TripsCommand { get; }
     public ICommand PaymentsCommand { get; }
     public ICommand ReportsCommand { get; }
+    public ICommand CheckInCommand { get; }
     public ICommand AccountsCommand { get; }
     public ICommand LogoutCommand { get; }
     public ICommand ToggleLanguageCommand { get; }
@@ -44,6 +45,7 @@ public sealed class AdminMainViewModel : ViewModelBase
                     AdminBusManagementViewModel => "Buses",
                     AdminTripManagementViewModel => "Trips",
                     AdminPaymentsViewModel => "Payments",
+                    AdminCheckInViewModel => "CheckIn",
                     AdminReportsViewModel => "Reports",
                     AdminAccountsViewModel => "Accounts",
                     _ => "Dashboard"
@@ -55,6 +57,7 @@ public sealed class AdminMainViewModel : ViewModelBase
         BusesCommand = new RelayCommand(() => _navigationService.NavigateTo<AdminBusManagementViewModel>());
         TripsCommand = new RelayCommand(() => _navigationService.NavigateTo<AdminTripManagementViewModel>());
         PaymentsCommand = new RelayCommand(() => _navigationService.NavigateTo<AdminPaymentsViewModel>());
+        CheckInCommand = new RelayCommand(() => _navigationService.NavigateTo<AdminCheckInViewModel>());
         ReportsCommand = new RelayCommand(() => _navigationService.NavigateTo<AdminReportsViewModel>());
         AccountsCommand = new RelayCommand(() => _navigationService.NavigateTo<AdminAccountsViewModel>());
         LogoutCommand = new RelayCommand(() => RequestLogout?.Invoke(this, EventArgs.Empty));

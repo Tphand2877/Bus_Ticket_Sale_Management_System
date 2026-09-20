@@ -81,11 +81,11 @@ WHERE t.TicketId=@TicketId AND t.TicketCode=@TicketCode AND t.Status=N'Đã đ�
 IF @Amount IS NULL THROW 51010, 'Ticket is not payable.', 1;
 IF EXISTS (SELECT 1 FROM Payments WHERE TicketId=@TicketId AND Status IN (N'Pending',N'Success'))
     THROW 51011, 'Payment already exists.', 1;
-IF @Departure <= SYSUTCDATETIME() THROW 51012, 'Trip already departed.', 1;
+IF DATEADD(MINUTE, 60, @Departure) <= SYSUTCDATETIME() THROW 51012, 'Trip already departed beyond the 60-minute grace period.', 1;
 INSERT INTO Payments(TicketId,TransactionNo,Provider,ProviderTransactionNo,OrderInfo,PaymentMethod,Amount,Status)
 VALUES(@TicketId,@TransactionNoInput,N'Cash',NULL,@OrderInfo,N'Cash',@Amount,N'Pending');
 SET @PaymentId = CAST(SCOPE_IDENTITY() AS int);
-UPDATE Tickets SET PaymentExpiresAt=@Departure WHERE TicketId=@TicketId;
+UPDATE Tickets SET PaymentExpiresAt=DATEADD(MINUTE, 60, @Departure) WHERE TicketId=@TicketId;
 SELECT @PaymentId, @Amount;";
         SqlTransaction? transaction = null;
         try
@@ -122,7 +122,7 @@ SELECT @PaymentId, @Amount;";
         catch (SqlException ex) when (ex.Number is 51011 or 2601 or 2627)
         { await RollbackQuietlyAsync(transaction); return new(false, ErrorMessage: "A payment already exists for this ticket."); }
         catch (SqlException ex) when (ex.Number == 51012)
-        { await RollbackQuietlyAsync(transaction); return new(false, ErrorMessage: "This trip has already departed, so cash on board is no longer possible."); }
+        { await RollbackQuietlyAsync(transaction); return new(false, ErrorMessage: "This trip departed more than 60 minutes ago, so cash on board is no longer possible."); }
         catch (SqlException ex)
         {
             await RollbackQuietlyAsync(transaction);

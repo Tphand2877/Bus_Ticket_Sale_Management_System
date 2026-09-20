@@ -45,6 +45,7 @@ public static class AppComposition
         services.AddTransient<AdminBusManagementViewModel>();
         services.AddTransient<AdminTripManagementViewModel>();
         services.AddTransient<AdminPaymentsViewModel>();
+        services.AddTransient<AdminCheckInViewModel>();
         services.AddTransient<AdminReportsViewModel>();
         services.AddTransient<AdminAccountsViewModel>();
 

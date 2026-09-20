@@ -76,12 +76,14 @@ public sealed class AdminTripManagementViewModel : ViewModelBase, IRefreshable
     public ICommand ConfirmDeleteCommand { get; }
     public ICommand CancelDeleteCommand { get; }
     public ICommand RefreshCommand { get; }
+    public ICommand CancelTripCommand { get; }
 
     public AdminTripManagementViewModel()
     {
         AddCommand = new AsyncRelayCommand(async () => await AddAsync());
         UpdateCommand = new AsyncRelayCommand(async () => await UpdateAsync(), () => IsEditing);
         RefreshCommand = new AsyncRelayCommand(async () => await RefreshAsync());
+        CancelTripCommand = new AsyncRelayCommand(async p => await CancelTripAsync(p));
         CancelEditCommand = new RelayCommand(() =>
         {
             IsEditing = false;
@@ -226,6 +228,21 @@ public sealed class AdminTripManagementViewModel : ViewModelBase, IRefreshable
         {
             PendingDelete = null;
             Message = AdminFailure.Describe(ex, "Deleting the trip");
+        }
+    }
+
+    private async Task CancelTripAsync(object? p)
+    {
+        if (p is not TripAdminItem t) return;
+        try
+        {
+            var (success, error) = await AdminDatabaseService.CancelTripAsync(t.TripId, "Chuyến xe bị hủy bởi ban điều hành bến.");
+            Message = error ?? $"Đã hủy chuyến {t.Route} ({t.DepartureFormatted}). Các vé và thanh toán liên quan đã được cập nhật.";
+            if (success) await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            Message = AdminFailure.Describe(ex, "Hủy chuyến xe");
         }
     }
 }

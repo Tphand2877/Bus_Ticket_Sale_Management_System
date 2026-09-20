@@ -1,0 +1,210 @@
+<UserControl x:Class="BusTicketSaleSystem.Views.AdminCheckInView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="700" d:DesignWidth="1000">
+
+    <Grid Margin="0,0,0,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="#EEF2FF" CornerRadius="8" Padding="8" Margin="0,0,12,0">
+                        <TextBlock Text="🎟️" FontSize="20"/>
+                    </Border>
+                    <StackPanel>
+                        <TextBlock Text="SOÁT VÉ &amp; CHECK-IN CỬA BẾN" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Quét mã vạch hoặc mã QR trên vé để kiểm tra tính hợp lệ và cho hành khách lên xe"
+                                   FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <!-- Barcode Scanner Input Box -->
+        <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="20" Margin="0,0,0,16" Background="#FAFAFE" BorderBrush="#E0E7FF">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox x:Name="TxtScannerInput"
+                         Grid.Column="0"
+                         Text="{Binding TicketCodeInput, UpdateSourceTrigger=PropertyChanged}"
+                         Height="46"
+                         FontSize="16"
+                         FontWeight="SemiBold"
+                         VerticalContentAlignment="Center"
+                         Padding="14,0"
+                         Style="{StaticResource ModernTextBoxStyle}">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Return" Command="{Binding SearchCommand}"/>
+                    </TextBox.InputBindings>
+                </TextBox>
+
+                <Button Grid.Column="1"
+                        Content="🔍 Tra cứu vé"
+                        Command="{Binding SearchCommand}"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Height="46"
+                        Padding="20,0"
+                        FontSize="14"
+                        Margin="10,0,0,0"/>
+
+                <Button Grid.Column="2"
+                        Content="Làm mới"
+                        Command="{Binding ClearCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Height="46"
+                        Padding="16,0"
+                        FontSize="13"
+                        Margin="8,0,0,0"/>
+            </Grid>
+        </Border>
+
+        <!-- Status Message Banner -->
+        <Border Grid.Row="2"
+                Margin="0,0,0,16"
+                CornerRadius="8"
+                Padding="16,12"
+                Visibility="{Binding HasMessage, Converter={StaticResource BooleanToVisibilityConverter}}"
+                Background="#FEF2F2"
+                BorderBrush="#FECACA"
+                BorderThickness="1">
+            <TextBlock Text="{Binding Message}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+        </Border>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.5*"/>
+                <ColumnDefinition Width="1*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: Ticket Inspection & Check-in Card -->
+            <Border Grid.Column="0" Style="{StaticResource CardStyle}" Padding="24" Margin="0,0,12,0">
+                <Grid>
+                    <!-- Ticket Found State -->
+                    <StackPanel Visibility="{Binding HasTicket, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <!-- Ticket Header & Status -->
+                        <Grid Margin="0,0,0,18">
+                            <StackPanel>
+                                <TextBlock Text="THÔNG TIN VÉ XE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding FoundTicket.TicketCode}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="6" Padding="12,6" Background="#ECFDF5">
+                                <TextBlock Text="{Binding TicketStatusBadge}" FontWeight="Bold" FontSize="12" Foreground="{Binding TicketStatusColor}"/>
+                            </Border>
+                        </Grid>
+
+                        <Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,18"/>
+
+                        <!-- Passenger & Route Information Grid -->
+                        <Grid Margin="0,0,0,18">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1*"/>
+                                <ColumnDefinition Width="1*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,14">
+                                <TextBlock Text="HÀNH KHÁCH" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding FoundTicket.PassengerName}" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,4,0,0"/>
+                                <TextBlock Text="{Binding FoundTicket.PassengerPhone, StringFormat='SĐT: {0}'}" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,14">
+                                <TextBlock Text="SỐ GHẾ" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding FoundTicket.SeatNumbers, StringFormat='Ghế: {0}'}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" Margin="0,4,0,0"/>
+                                <TextBlock Text="{Binding FoundTicket.SeatCount, StringFormat='(Tổng cộng: {0} chỗ)'}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,12,0">
+                                <TextBlock Text="TUYẾN ĐƯỜNG" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding FoundTicket.Route}" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,4,0,0"/>
+                                <TextBlock Text="{Binding FoundTicket.LicensePlate, StringFormat='Xe: {0}'}" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="1">
+                                <TextBlock Text="GIỜ XUẤT BẾN" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding FoundTicket.DepartureFormatted}" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,4,0,0"/>
+                                <TextBlock Text="{Binding FoundTicket.TotalPrice, StringFormat='{}{0:N0} VND'}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,20"/>
+
+                        <!-- Big Check-In Action Button -->
+                        <Button Content="✓ XÁC NHẬN SOÁT VÉ LÊN XE"
+                                Command="{Binding CheckInCommand}"
+                                IsEnabled="{Binding CanCheckIn}"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Height="52"
+                                FontSize="16"
+                                FontWeight="Bold"
+                                Background="{StaticResource SuccessBrush}"
+                                Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <!-- Empty State (No ticket scanned yet) -->
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20"
+                                Visibility="{Binding HasTicket, Converter={StaticResource BooleanToVisibilityInvertedConverter}}">
+                        <TextBlock Text="📷" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                        <TextBlock Text="Sẵn sàng quét vé" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Đặt đầu đọc mã vạch / máy quét QR vào ô tra cứu phía trên để tiến hành soát vé."
+                                   FontSize="13" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,0" MaxWidth="320"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Right: Recent Check-in History -->
+            <Border Grid.Column="1" Style="{StaticResource CardStyle}" Padding="20" Margin="12,0,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="LỊCH SỬ SOÁT VÉ GẦN ĐÂY" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,14"/>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding RecentCheckIns}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="{Binding PassengerName}" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                                <TextBlock Text="{Binding Route}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                                                <TextBlock Text="{Binding SeatNumbers, StringFormat='Ghế: {0}'}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding TimeCheckedIn}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Top"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

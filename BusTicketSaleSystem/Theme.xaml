@@ -575,8 +575,17 @@
     </Style>
 
     <!-- ====================================================
-         INPUT STYLES (Modern TextBox, PasswordBox)
+         INPUT STYLES WITH INLINE VALIDATION (AUD-F-003)
          ==================================================== -->
+    <ControlTemplate x:Key="ModernValidationErrorTemplate">
+        <StackPanel>
+            <AdornedElementPlaceholder x:Name="placeholder"/>
+            <Border Background="#FEF2F2" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,3,0,0">
+                <TextBlock Text="{Binding [0].ErrorContent}" Foreground="#DC2626" FontSize="11" FontWeight="SemiBold"/>
+            </Border>
+        </StackPanel>
+    </ControlTemplate>
+
     <Style x:Key="ModernTextBoxStyle" TargetType="TextBox">
         <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
         <Setter Property="FontSize" Value="14"/>
@@ -586,6 +595,7 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="14,10"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Validation.ErrorTemplate" Value="{StaticResource ModernValidationErrorTemplate}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
@@ -609,6 +619,10 @@
                             <Setter TargetName="border" Property="Background" Value="{StaticResource SurfaceMutedBrush}"/>
                             <Setter TargetName="border" Property="Opacity" Value="0.7"/>
                         </Trigger>
+                        <Trigger Property="Validation.HasError" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="#EF4444"/>
+                            <Setter TargetName="border" Property="BorderThickness" Value="1.5"/>
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -624,6 +638,7 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="14,10"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Validation.ErrorTemplate" Value="{StaticResource ModernValidationErrorTemplate}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="PasswordBox">
@@ -645,6 +660,10 @@
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Background" Value="{StaticResource SurfaceMutedBrush}"/>
                             <Setter TargetName="border" Property="Opacity" Value="0.7"/>
+                        </Trigger>
+                        <Trigger Property="Validation.HasError" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="#EF4444"/>
+                            <Setter TargetName="border" Property="BorderThickness" Value="1.5"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

@@ -71,13 +71,22 @@ public sealed record TripSearchResult(
     public string RouteWithStops => string.IsNullOrWhiteSpace(IntermediateStops)
         ? Route
         : $"{Route} (Dừng: {IntermediateStops})";
-    public string Schedule => $"{DepartureTime:dd/MM/yyyy HH:mm} - {ArrivalTime:HH:mm}";
+    private DateTime DepartureLocal => DepartureTime.Kind == DateTimeKind.Utc ? DepartureTime.ToLocalTime() : DepartureTime;
+    private DateTime ArrivalLocal => ArrivalTime.Kind == DateTimeKind.Utc ? ArrivalTime.ToLocalTime() : ArrivalTime;
+    private static DateTime EnsureUtc(DateTime dt) => dt.Kind switch
+    {
+        DateTimeKind.Utc => dt,
+        DateTimeKind.Local => dt.ToUniversalTime(),
+        _ => dt
+    };
+
+    public string Schedule => $"{DepartureLocal:dd/MM/yyyy HH:mm} - {ArrivalLocal:HH:mm}";
     public string PriceDisplay => $"{Price:N0} VND";
     public string FormattedFare => $"{Price:N0} VND / vé";
     public string AvailableSeatsDisplay => AvailableSeats == 1 ? "1 seat left" : $"{AvailableSeats} seats left";
-    public bool IsAvailable => AvailableSeats > 0 && DepartureTime > DateTime.Now;
+    public bool IsAvailable => AvailableSeats > 0 && EnsureUtc(DepartureTime) > DateTime.UtcNow;
     public double CardOpacity => IsAvailable ? 1.0 : 0.45;
-    public string StatusBadgeText => DepartureTime <= DateTime.Now ? "Đã khởi hành" : (AvailableSeats > 0 ? $"● Còn {AvailableSeats} chỗ" : "Hết chỗ");
+    public string StatusBadgeText => EnsureUtc(DepartureTime) <= DateTime.UtcNow ? "Đã khởi hành" : (AvailableSeats > 0 ? $"● Còn {AvailableSeats} chỗ" : "Hết chỗ");
 
     public IReadOnlyList<string> StopsList =>
         new[] { Origin }
@@ -141,9 +150,23 @@ public sealed record TicketDetails(
         Status == TicketStatuses.Reserved && PaymentStatus == TicketStatuses.Unpaid &&
         (PaymentExpiresAt is null || PaymentExpiresAt > DateTime.UtcNow);
 
+    private DateTime DepartureLocal => DepartureTime.Kind == DateTimeKind.Utc ? DepartureTime.ToLocalTime() : DepartureTime;
+    private DateTime ArrivalLocal => ArrivalTime.Kind == DateTimeKind.Utc ? ArrivalTime.ToLocalTime() : ArrivalTime;
+    private DateTime BookingLocal => BookingTime.Kind == DateTimeKind.Utc ? BookingTime.ToLocalTime() : BookingTime;
+    private static DateTime EnsureUtc(DateTime dt) => dt.Kind switch
+    {
+        DateTimeKind.Utc => dt,
+        DateTimeKind.Local => dt.ToUniversalTime(),
+        _ => dt
+    };
+
     /// <summary>A refund can only be requested for a settled ticket before departure.</summary>
     public bool CanRequestRefund =>
-        Status == TicketStatuses.Paid && PaymentStatus == TicketStatuses.Paid && DepartureTime > DateTime.UtcNow;
+        Status == TicketStatuses.Paid && PaymentStatus == TicketStatuses.Paid && EnsureUtc(DepartureTime) > DateTime.UtcNow;
+
+    public string DepartureFormatted => DepartureLocal.ToString("dd/MM/yyyy HH:mm");
+    public string ArrivalFormatted => ArrivalLocal.ToString("dd/MM/yyyy HH:mm");
+    public string BookingTimeFormatted => BookingLocal.ToString("dd/MM/yyyy HH:mm");
 }
 
 public sealed record PopularRouteItem(

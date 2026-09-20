@@ -274,11 +274,14 @@ ORDER BY CASE WHEN p.Status = N'Pending' THEN 0 ELSE 1 END, p.CreatedAt DESC;";
 SELECT r.Origin + N' → ' + r.Destination AS RouteSummary,
        SUM(CASE WHEN p.Status = N'Success' THEN 1 ELSE 0 END),
        COALESCE(SUM(CASE WHEN p.Status = N'Success' THEN p.Amount ELSE 0 END), 0),
-       COALESCE(SUM(CASE WHEN p.Status = N'Refunded' THEN p.Amount ELSE 0 END), 0)
+       COALESCE(SUM(CASE WHEN p.Status = N'Refunded' THEN p.Amount ELSE 0 END), 0),
+       COALESCE(AVG(bc.CommissionRate), 0.1000)
 FROM Payments p
 JOIN Tickets tk ON tk.TicketId = p.TicketId
 JOIN Trips tr ON tr.TripId = tk.TripId
 JOIN Routes r ON r.RouteId = tr.RouteId
+JOIN Buses b ON b.BusId = tr.BusId
+LEFT JOIN BusCompanies bc ON bc.CompanyName = b.CompanyName
 WHERE p.Status IN (N'Success', N'Refunded')
   AND p.CreatedAt >= @From
   AND p.CreatedAt < @To
@@ -293,7 +296,7 @@ ORDER BY 3 DESC, RouteSummary ASC;";
         command.Parameters.Add("@To", SqlDbType.DateTime2).Value = toUtc;
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
-            list.Add(new RevenueReportItem(reader.GetString(0), reader.GetInt32(1), reader.GetDecimal(2), reader.GetDecimal(3)));
+            list.Add(new RevenueReportItem(reader.GetString(0), reader.GetInt32(1), reader.GetDecimal(2), reader.GetDecimal(3), reader.GetDecimal(4)));
         return list;
     }
 
@@ -1015,7 +1018,7 @@ END;";
         RequireAdmin();
         const string sql = @"
 SELECT t.TripId, t.RouteId, t.BusId, r.Origin + N' → ' + r.Destination,
-       b.LicensePlate, t.DepartureTime, t.ArrivalTime, t.Price
+       b.LicensePlate, t.DepartureTime, t.ArrivalTime, t.Price, t.Status
 FROM Trips t JOIN Routes r ON r.RouteId = t.RouteId JOIN Buses b ON b.BusId = t.BusId
 ORDER BY t.DepartureTime DESC;";
         var list = new List<TripAdminItem>();
@@ -1023,7 +1026,13 @@ ORDER BY t.DepartureTime DESC;";
         await connection.OpenAsync();
         await using var command = new SqlCommand(sql, connection);
         await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync()) list.Add(new TripAdminItem(reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2), reader.GetString(3), reader.GetString(4), reader.GetDateTime(5), reader.GetDateTime(6), reader.GetDecimal(7)));
+        while (await reader.ReadAsync()) list.Add(new TripAdminItem(
+            reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2),
+            reader.GetString(3), reader.GetString(4),
+            DateTime.SpecifyKind(reader.GetDateTime(5), DateTimeKind.Utc),
+            DateTime.SpecifyKind(reader.GetDateTime(6), DateTimeKind.Utc),
+            reader.GetDecimal(7),
+            reader.GetString(8)));
         return list;
     }
 
@@ -1032,11 +1041,15 @@ ORDER BY t.DepartureTime DESC;";
         RequireAdmin();
         if (arrival <= departure) return (false, "Arrival must be later than departure.");
         if (price < 0) return (false, "Fare cannot be negative.");
+
+        var departureUtc = departure.Kind == DateTimeKind.Utc ? departure : departure.ToUniversalTime();
+        var arrivalUtc = arrival.Kind == DateTimeKind.Utc ? arrival : arrival.ToUniversalTime();
+
         const string sql = @"
 SET XACT_ABORT ON;
 BEGIN TRANSACTION;
-INSERT INTO Trips (RouteId, BusId, DepartureTime, ArrivalTime, Price)
-SELECT @Route, @Bus, @Departure, @Arrival, @Price
+INSERT INTO Trips (RouteId, BusId, DepartureTime, ArrivalTime, Price, Status)
+SELECT @Route, @Bus, @Departure, @Arrival, @Price, N'Scheduled'
 WHERE EXISTS (SELECT 1 FROM Routes WHERE RouteId = @Route)
   AND EXISTS (SELECT 1 FROM Buses WHERE BusId = @Bus)
   /* HOLDLOCK keeps the range locked until commit, so two admins cannot both pass
@@ -1052,8 +1065,8 @@ COMMIT TRANSACTION;";
             await using var command = new SqlCommand(sql, connection);
             command.Parameters.Add("@Route", SqlDbType.Int).Value = routeId;
             command.Parameters.Add("@Bus", SqlDbType.Int).Value = busId;
-            command.Parameters.Add("@Departure", SqlDbType.DateTime2).Value = departure;
-            command.Parameters.Add("@Arrival", SqlDbType.DateTime2).Value = arrival;
+            command.Parameters.Add("@Departure", SqlDbType.DateTime2).Value = departureUtc;
+            command.Parameters.Add("@Arrival", SqlDbType.DateTime2).Value = arrivalUtc;
             var amount = command.Parameters.Add("@Price", SqlDbType.Decimal);
             amount.Precision = 10;
             amount.Scale = 0;
@@ -1087,6 +1100,9 @@ COMMIT TRANSACTION;";
         RequireAdmin();
         if (arrival <= departure) return (false, "Arrival must be later than departure.");
         if (price < 0) return (false, "Fare cannot be negative.");
+
+        var departureUtc = departure.Kind == DateTimeKind.Utc ? departure : departure.ToUniversalTime();
+        var arrivalUtc = arrival.Kind == DateTimeKind.Utc ? arrival : arrival.ToUniversalTime();
 
         const string sql = @"
 SET NOCOUNT ON;
@@ -1122,8 +1138,8 @@ END;";
             command.Parameters.Add("@TripId", SqlDbType.Int).Value = tripId;
             command.Parameters.Add("@Route", SqlDbType.Int).Value = routeId;
             command.Parameters.Add("@Bus", SqlDbType.Int).Value = busId;
-            command.Parameters.Add("@Departure", SqlDbType.DateTime2).Value = departure;
-            command.Parameters.Add("@Arrival", SqlDbType.DateTime2).Value = arrival;
+            command.Parameters.Add("@Departure", SqlDbType.DateTime2).Value = departureUtc;
+            command.Parameters.Add("@Arrival", SqlDbType.DateTime2).Value = arrivalUtc;
             var pPrice = command.Parameters.Add("@Price", SqlDbType.Decimal);
             pPrice.Precision = 10;
             pPrice.Scale = 0;
@@ -1172,6 +1188,93 @@ WHERE TripId = @Id
         {
             LoggerService.LogError($"DeleteTripAsync failed for trip {tripId}.", ex);
             return (false, "The trip could not be deleted.");
+        }
+    }
+
+    /// <summary>
+    /// Cancels a scheduled departure. Cancels all active tickets on the trip, marks
+    /// settled payments for refund review, fails pending holds, and writes an audit log.
+    /// </summary>
+    public static async Task<(bool Success, string? Error)> CancelTripAsync(int tripId, string? reason = null)
+    {
+        RequireAdmin();
+        const string sql = @"
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+
+DECLARE @CurrentStatus NVARCHAR(20), @Departure DATETIME2;
+SELECT @CurrentStatus = Status, @Departure = DepartureTime
+FROM dbo.Trips WITH (UPDLOCK, HOLDLOCK)
+WHERE TripId = @Id;
+
+IF @CurrentStatus IS NULL
+BEGIN
+    ROLLBACK TRANSACTION;
+    SELECT 1; -- Not found
+END
+ELSE IF @CurrentStatus = N'Cancelled'
+BEGIN
+    ROLLBACK TRANSACTION;
+    SELECT 2; -- Already cancelled
+END
+ELSE IF @CurrentStatus = N'Departed' OR @Departure <= SYSUTCDATETIME()
+BEGIN
+    ROLLBACK TRANSACTION;
+    SELECT 3; -- Cannot cancel a departed trip
+END
+ELSE
+BEGIN
+    -- 1. Mark trip as cancelled
+    UPDATE dbo.Trips SET Status = N'Cancelled' WHERE TripId = @Id;
+
+    -- 2. Cancel all active tickets on this trip
+    UPDATE dbo.Tickets
+    SET Status = N'Đã hủy', CancelledAt = SYSUTCDATETIME(), PaymentExpiresAt = NULL
+    WHERE TripId = @Id AND Status IN (N'Đã đặt', N'Đã thanh toán');
+
+    -- 3. Mark settled payments for refund review
+    UPDATE p
+    SET p.RefundRequestedAt = COALESCE(p.RefundRequestedAt, SYSUTCDATETIME()),
+        p.Notes = COALESCE(p.Notes, N'Chuyến xe bị hủy bởi ban quản trị.')
+    FROM dbo.Payments p
+    JOIN dbo.Tickets tk ON tk.TicketId = p.TicketId
+    WHERE tk.TripId = @Id AND p.Status = N'Success';
+
+    -- 4. Fail pending holds
+    UPDATE p
+    SET p.Status = N'Failed',
+        p.Notes = COALESCE(p.Notes, N'Chuyến xe bị hủy bởi ban quản trị.')
+    FROM dbo.Payments p
+    JOIN dbo.Tickets tk ON tk.TicketId = p.TicketId
+    WHERE tk.TripId = @Id AND p.Status = N'Pending';
+
+    COMMIT TRANSACTION;
+    SELECT 0; -- Success
+END;";
+        try
+        {
+            await using var connection = DatabaseHelper.GetConnection();
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(sql, connection);
+            command.Parameters.Add("@Id", SqlDbType.Int).Value = tripId;
+            var code = (int)(await command.ExecuteScalarAsync())!;
+            if (code == 0)
+            {
+                await AuditLog.WriteAsync(connection, null, "TripCancelled", "Trip", tripId.ToString(), reason);
+                LoggerService.LogInfo($"Admin {CurrentUser.Account?.AccountId} cancelled trip {tripId}. Reason: {reason ?? "(none)"}");
+            }
+            return code switch
+            {
+                0 => (true, null),
+                1 => (false, "That trip no longer exists."),
+                2 => (false, "This trip has already been cancelled."),
+                _ => (false, "This trip has already departed and cannot be cancelled.")
+            };
+        }
+        catch (SqlException ex)
+        {
+            LoggerService.LogError($"CancelTripAsync failed for trip {tripId}.", ex);
+            return (false, "The trip could not be cancelled.");
         }
     }
 
