@@ -127,7 +127,16 @@ public sealed class BookingConfirmationViewModel : ViewModelBase
             var payment = await PaymentService.CreatePaymentAsync(new PaymentRequest(ticket.TicketId, ticket.TicketCode, method.Code));
             if (!payment.IsSuccess)
             {
-                await DatabaseHelper.CancelTicketAsync(ticket.TicketId, CurrentUser.Account.AccountId);
+                // The hold and the payment are separate transactions joined by this
+                // compensation. If it fails the seat stays blocked with no payment
+                // against it, so the ticket code must reach the log (AUD-C-007).
+                var released = await DatabaseHelper.CancelTicketAsync(ticket.TicketId, CurrentUser.Account.AccountId);
+                if (!released.Success)
+                {
+                    LoggerService.LogError(
+                        $"Payment creation failed for ticket {ticket.TicketCode} and releasing the seat hold also failed: {released.Error}. " +
+                        "The hold will stay until the expiry sweep runs.");
+                }
                 StatusMessage = payment.ErrorMessage ?? "The payment could not be started, so the selected seats were released.";
                 return;
             }

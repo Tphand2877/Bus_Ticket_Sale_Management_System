@@ -1,5 +1,7 @@
 using System.Data;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using BusTicketSaleSystem.Services;
 using Microsoft.Data.SqlClient;
@@ -44,7 +46,7 @@ public static class DatabaseMigrator
             await ApplyMigrationAsync(connection, "014_PaymentIntegrity", "Migration_011_PaymentIntegrity.sql", skipWhenAccountsExist: false, cancellationToken);
             await ApplyMigrationAsync(connection, "015_AuditLog", "Migration_012_AuditLog.sql", skipWhenAccountsExist: false, cancellationToken);
             await ApplyMigrationAsync(connection, "016_SeatAvailabilityIndexes", "Migration_013_SeatAvailabilityIndexes.sql", skipWhenAccountsExist: false, cancellationToken);
-            await EnsureStagePriceColumnsAsync(connection, cancellationToken);
+            await ApplyMigrationAsync(connection, "017_StagePrice", "Migration_014_StagePrice.sql", skipWhenAccountsExist: false, cancellationToken);
             return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -130,14 +132,46 @@ BEGIN
         ScriptName NVARCHAR(255) NOT NULL CONSTRAINT UQ_DatabaseMigrations_ScriptName UNIQUE,
         AppliedAt DATETIME2 NOT NULL CONSTRAINT DF_DatabaseMigrations_AppliedAt DEFAULT SYSUTCDATETIME()
     );
-END;";
+END;
+/* Checksum of the script as applied. Editing an already-applied migration used to be
+   silently ignored on existing databases, so two installations could claim the same
+   history with different schemas (AUD-B-009). NULL means 'recorded before checksums
+   existed' and is accepted without complaint. */
+IF COL_LENGTH(N'dbo.__DatabaseMigrations', N'Checksum') IS NULL
+    ALTER TABLE dbo.__DatabaseMigrations ADD Checksum CHAR(64) NULL;";
         await using var command = new SqlCommand(sql, connection);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    /// <summary>SHA-256 of the normalised script, as stored in the history table.</summary>
+    private static string ComputeChecksum(string script) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(script)));
+
+    /// <summary>
+    /// Fails loudly when an already-applied script has been edited since it ran.
+    /// </summary>
+    private static async Task VerifyChecksumAsync(SqlConnection connection, string name, string fileName, CancellationToken cancellationToken)
+    {
+        await using var command = new SqlCommand(
+            $"SELECT Checksum FROM dbo.{HistoryTable} WHERE ScriptName = @ScriptName;", connection);
+        command.Parameters.Add("@ScriptName", SqlDbType.NVarChar, 255).Value = name;
+        if (await command.ExecuteScalarAsync(cancellationToken) is not string recorded) return;
+
+        var current = ComputeChecksum(await LoadScriptAsync(fileName, cancellationToken));
+        if (string.Equals(recorded, current, StringComparison.OrdinalIgnoreCase)) return;
+
+        throw new InvalidOperationException(
+            $"Migration '{name}' ({fileName}) has changed since it was applied to this database. " +
+            "Applied migrations are immutable: add a new migration instead of editing this one.");
+    }
+
     private static async Task ApplyMigrationAsync(SqlConnection connection, string name, string fileName, bool skipWhenAccountsExist, CancellationToken cancellationToken)
     {
-        if (await IsAppliedAsync(connection, name, cancellationToken)) return;
+        if (await IsAppliedAsync(connection, name, cancellationToken))
+        {
+            await VerifyChecksumAsync(connection, name, fileName, cancellationToken);
+            return;
+        }
 
         if (skipWhenAccountsExist && await TableExistsAsync(connection, "Accounts", cancellationToken))
         {
@@ -158,8 +192,10 @@ END;";
             // record a migration that did not run, nor run one it forgot.
             await ExecuteBatchesAsync(connection, transaction, script, fileName, cancellationToken);
 
-            await using var record = new SqlCommand($"INSERT INTO dbo.{HistoryTable} (ScriptName) VALUES (@ScriptName);", connection, transaction);
+            await using var record = new SqlCommand(
+                $"INSERT INTO dbo.{HistoryTable} (ScriptName, Checksum) VALUES (@ScriptName, @Checksum);", connection, transaction);
             record.Parameters.Add("@ScriptName", SqlDbType.NVarChar, 255).Value = name;
+            record.Parameters.Add("@Checksum", SqlDbType.Char, 64).Value = ComputeChecksum(script);
             await record.ExecuteNonQueryAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             LoggerService.LogInfo($"Applied migration '{name}' ({fileName}).");
@@ -233,19 +269,6 @@ END;";
         script = Regex.Replace(script, @"^\s*USE\s+[^;\r\n]+;\s*$", string.Empty, RegexOptions.Multiline | RegexOptions.IgnoreCase);
         return Regex.Replace(script, @"^\s*IF\s+DB_ID\([^)]+\)\s+IS\s+NULL\s+CREATE\s+DATABASE\s+[^;]+;\s*$", string.Empty, RegexOptions.Multiline | RegexOptions.IgnoreCase);
     }
-    private static async Task EnsureStagePriceColumnsAsync(SqlConnection connection, CancellationToken cancellationToken)
-    {
-        const string sql = @"
-IF COL_LENGTH(N'dbo.Buses', N'StagePrice') IS NULL
-    ALTER TABLE dbo.Buses ADD StagePrice DECIMAL(10,0) NULL;
-
-IF COL_LENGTH(N'dbo.Trips', N'StagePrice') IS NULL
-    ALTER TABLE dbo.Trips ADD StagePrice DECIMAL(10,0) NULL;
-";
-        await using var cmd = new SqlCommand(sql, connection);
-        await cmd.ExecuteNonQueryAsync(cancellationToken);
-    }
-
     private static IEnumerable<string> SplitBatches(string script) =>
         Regex.Split(script, @"^\s*GO\s*(?:--.*)?$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
 }
