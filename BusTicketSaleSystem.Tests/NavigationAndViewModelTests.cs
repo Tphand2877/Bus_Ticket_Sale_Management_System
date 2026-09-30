@@ -304,6 +304,37 @@ public sealed class NavigationAndViewModelTests
         Assert.Null(threadException);
     }
 
+    [Theory]
+    [InlineData(typeof(BusTicketSaleSystem.Views.AdminTripManagementView))]
+    [InlineData(typeof(BusTicketSaleSystem.Views.AdminCheckInView))]
+    [InlineData(typeof(BusTicketSaleSystem.Views.AdminReportsView))]
+    [InlineData(typeof(BusTicketSaleSystem.Views.AdminBusManagementView))]
+    [InlineData(typeof(BusTicketSaleSystem.Views.AdminRouteManagementView))]
+    [InlineData(typeof(BusTicketSaleSystem.Views.AdminAccountsView))]
+    [InlineData(typeof(BusTicketSaleSystem.Views.AdminDashboardView))]
+    public void AdminViews_CanBeInstantiatedWithoutResourceError(Type viewType)
+    {
+        Exception? threadException = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                EnsureWpfApp();
+                var view = Activator.CreateInstance(viewType);
+                Assert.NotNull(view);
+            }
+            catch (Exception ex)
+            {
+                threadException = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        Assert.Null(threadException);
+    }
+
     [Fact]
     public void AdminBusManagementViewModel_QuickPresets_SetExpectedTimeSlots()
     {

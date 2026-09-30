@@ -17,6 +17,7 @@
     <common:TicketStatusToBrushConverter x:Key="TicketStatusToBrush"/>
     <common:NotificationKindToBrushConverter x:Key="NotificationKindToBrush"/>
     <common:NotificationKindToGlyphConverter x:Key="NotificationKindToGlyph"/>
+    <common:BooleanToBrushConverter x:Key="BooleanToBrushConverter"/>
 
     <!-- ====================================================
          KEYBOARD FOCUS RING

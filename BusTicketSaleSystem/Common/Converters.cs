@@ -144,6 +144,31 @@ namespace BusTicketSaleSystem.Common
         }
     }
 
+    public class BooleanToBrushConverter : IValueConverter
+    {
+        public Brush TrueBrush { get; set; } = Brushes.Transparent;
+        public Brush FalseBrush { get; set; } = Brushes.Transparent;
+
+        public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            var isTrue = value is true;
+            if (parameter is string paramStr && paramStr.Contains('|'))
+            {
+                var parts = paramStr.Split('|');
+                var brushConverter = new BrushConverter();
+                var trueB = (Brush)brushConverter.ConvertFromString(parts[0])!;
+                var falseB = (Brush)brushConverter.ConvertFromString(parts[1])!;
+                return isTrue ? trueB : falseB;
+            }
+            return isTrue ? TrueBrush : FalseBrush;
+        }
+
+        public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
     /// <summary>
     /// Semantic palette for one ticket/payment state: surface, border and text that agree with
     /// each other. Hard-coding these in XAML made every ticket render success-green, so a
